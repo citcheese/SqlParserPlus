@@ -1,0 +1,6 @@
+re
+json
+csv
+easygui
+tqdm
+colorama
