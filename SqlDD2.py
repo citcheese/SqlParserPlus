@@ -185,7 +185,11 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                         data = data.split("),(")
                         data = [x.replace('`', '').strip(" (").strip(") ") for x in data]
                         for y in data:
-                            newline = y.replace('`', '').replace("\t", "").replace("\\'", "&quot ")
+                            newline = y.replace('`', '').replace("\t", "")
+                            newline = re.sub("(?<!, (?<=))\\\\'(?!, ')", "&quot ",
+                                             newline)  # may need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
+
+                            #newline = y.replace('`', '').replace("\t", "").replace("\\'", "&quot ")
                             newline = newline.strip(" ()\"")
                             newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
                                                newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
