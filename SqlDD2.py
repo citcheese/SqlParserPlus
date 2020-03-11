@@ -99,9 +99,9 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                     # newline = line
                     line = line.replace("IF NOT EXISTS ","").replace("&quot;","`") #get rid of those term so below regex works
 
-                    table_name = re.findall('create table `([\w_]+)`', line.lower())
+                    table_name = re.findall('create table `([\w_]+)`', line,flags = re.IGNORECASE)
                     if not table_name:
-                        table_name = re.findall('create table ([\w_]+)', line.lower())
+                        table_name = re.findall('create table ([\w_]+)', line,flags = re.IGNORECASE)
                     table_list.extend(table_name)
                 elif line.lower().startswith('truncate table'):#uniqueish case found with "minecraftjunkie.sql" #remove if causing issues elsewhere
                     table_name = re.findall('truncate table ([\w_]+)', line.lower())
@@ -128,122 +128,131 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
             items = []
             values = []
             for line in tqdm(f,desc=f"Parsing {Fore.LIGHTBLUE_EX}{target_table}{Fore.RESET} table"):
-                line = line.strip()
-                #have issues with common tablenames like users where that word is in that line so really need proximity search or maybe search just first x characters, added [:50] fuck yes, seems to work
-                #having issues where common term
-                #get your headers
-                # get your values
-                if line.lower().startswith('insert') and target_table in line.split("(", 1)[0][
-                                                                         :50] and target_table + "_" not in line:
-                    splitline = line.split(target_table)[1]
-                    splitfirst = line.split(target_table)[0]
-                    if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (
-                            not splitfirst[-1].isdigit() and not splitfirst[
-                        -1].isalpha()):  # take care of when have targetable accounts and dont want values from tables called accounts1 or useraccounts
-                        if '),(' in line:  # when sql dump is not line seperated
-                            read_mode = 2  # print(line) #dont think need these read modes anymore but kept as legacy just in case
-                            # continue
-
-                        else:
-                            read_mode = 3
-                        #continue
-
-                if line.lower().startswith('create table') and target_table in line and target_table + "_" not in line: # the "_" gets rid of false positives like target_table_1 etc but not target_table1
-                    splitline = line.split(target_table)[1]
-                    splitfirst = line.split(target_table)[0]
-                    if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (not splitfirst[-1].isdigit() and not splitfirst[-1].isalpha()):
-                        read_mode =1
-
-                        continue
-                            #values.append(line) testing
-                if read_mode==0:
-                    continue
-                elif read_mode==1:
-                    if line.lower().startswith('primary'):
-                        # add more conditions here for different cases
-                        #(e.g. when simply a key is defined, or no key is defined)
-                        read_mode=0
-                        continue
-                    elif line.lower().startswith(")"): #added this to deal with desking, w/o worked fien for other ones
-                        read_mode=0
-                        continue
-                    #print (line)
-                    #colheader = re.findall('`([\w_]+)`',line) #old version, only grabs header if in quotes
-                    colheader = re.findall('^([^ \t]+).*',line)
-                    for col in colheader:
-                        headers.append(col.strip("'").strip("`"))
-                # Filling up the headers
-
-                        #if line.endswith(';'):
-                         #   break
-                elif read_mode ==2:
-                    if line.lower().startswith('insert') and target_table in line[
+                #print(str(read_mode))
+                try:
+                    line = line.strip()
+                    #have issues with common tablenames like users where that word is in that line so really need proximity search or maybe search just first x characters, added [:50] fuck yes, seems to work
+                    #having issues where common term
+                    #get your headers
+                    # get your values
+                    if line.lower().startswith('insert') and target_table in line.split("(", 1)[0][
                                                                              :50] and target_table + "_" not in line:
+                        splitline = line.split(target_table)[1]
+                        splitfirst = line.split(target_table)[0]
+                        if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (
+                                not splitfirst[-1].isdigit() and not splitfirst[
+                            -1].isalpha()):  # take care of when have targetable accounts and dont want values from tables called accounts1 or useraccounts
+                            if '),(' in line:  # when sql dump is not line seperated
+                                read_mode = 2  # print(line) #dont think need these read modes anymore but kept as legacy just in case
+                                # continue
 
-                        data = line.split(" VALUES ", 1)[1]  #
-
-                        data = data.split("),(")
-                        data = [x.replace('`', '').strip(" (").strip(") ") for x in data]
-                        for y in data:
-                            newline = y.replace('`', '').replace("\t", "")
-                            newline = re.sub("(?<!, (?<=))\\\\'(?!, ')", "&quot ",
-                                             newline)  # may need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
-
-                            #newline = y.replace('`', '').replace("\t", "").replace("\\'", "&quot ")
-                            newline = newline.strip(" ()\"")
-                            newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
-                                               newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
-                            thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
-                            thing1 = [x.strip("'").replace("&quot ", "'").replace("\\\\","") for x in thing1] #add back in quote chars and remove slashes now that line hopefully parse and split properly
-                            # y = [y]
-                            # thing = next(csv.reader(y, quotechar="'", skipinitialspace=True))
-                            values.append(thing1)
-                elif read_mode ==3:
-                    if line.lower().startswith('insert') and target_table in line[
-                                                                             :50] and target_table + "_" not in line and line.endswith(
-                        "VALUES"):
-                        pass
-                    else:
-                        # if line.endswith(";"): #added this if/else clause to deal with desking issue where script was getting values of all table sfor some reason, but then I lose last entry in table
-                        #   read_mode=0
-                        #  continue
-                        # else:
-                        if ") VALUES (" in line:
-                            line = line.split(") VALUES ", 1)[1]
-                        data = re.findall('\((.*\))', line)  # get everythign between first and last occurance of parens
-                        try:
-                            if len(
-                                    data) > 1:  # for tht etime swhere you have insert values wih all headers before the value sto be inserted, this doesnt matter anymore as getting all data bwn first and last parens
-                                newline = data[1]
                             else:
-                                newline = data[0]
-                            newline = newline.replace('`', '').replace("\t", "").replace("\\\\","").replace("\\'", "&quot ")
+                                read_mode = 3
+                            #continue
 
-                            newline = newline.strip(
-                                " ()\"")  # .replace("\\'","") #added second replace to get rid of escaped single quotation marks that were fucking up when split values. Originally split on commas but that was whole thing too
-                            # and now have issue with values like 'cjvhcvjcvc\\' need something that searches for
-                            # newline = next(csv.reader(newline,   skipinitialspace=True))#quotechar="'", removed quotechar for now as having too many issues with internal single quote issues, but now having issue where splits on comma inside
+                    if line.lower().startswith('create table') and target_table in line and target_table + "_" not in line: # the "_" gets rid of false positives like target_table_1 etc but not target_table1
+                        splitline = line.split(target_table)[1]
+                        splitfirst = line.split(target_table)[0]
+                        if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (not splitfirst[-1].isdigit() and not splitfirst[-1].isalpha()):
+                            read_mode =1
 
-                            # newline = re.split(r", (?=(?:'[^']*?(?: [^']*)*))|, (?=[^',]+(?:,|$))", newline) #using regex to avoid issue with single quote and comma splits
-                            newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
-                                               newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
-                            # newline = [newline]
-                            thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
-                            thing1 = [x.strip(" '") for x in thing1]
-                            values.append(thing1)
-                            # need to
-                            if line.endswith(";") and not line.startswith(
-                                    "INSERT INTO"):  # added this if/else clause to deal with desking issue where script was getting values of all table sfor some reason, when added it above  I lose last entry in table, so now add it here so add data to list but after switch read-mode. Added extra line startswith cond as realized that when have insert into statements all the way down, those end with semi-colon
-                                read_mode = 0
-                                continue
+                            continue
+                                #values.append(line) testing
+                    if read_mode==0:
+                        continue
+                    elif read_mode==1:
+                        if line.lower().startswith('primary'):
+                            # add more conditions here for different cases
+                            #(e.g. when simply a key is defined, or no key is defined)
+                            read_mode=0
+                            continue
+                        elif line.lower().startswith(")"): #added this to deal with desking, w/o worked fien for other ones
+                            read_mode=0
+                            continue
+                        #print (line)
+                        #colheader = re.findall('`([\w_]+)`',line) #old version, only grabs header if in quotes
+                        colheader = re.findall('^([^ \t]+).*',line)
+                        for col in colheader:
+                            headers.append(col.strip("'").strip("`"))
+                    # Filling up the headers
 
+                            #if line.endswith(';'):
+                             #   break
+                    elif read_mode ==2:
+                        if line.lower().startswith('insert') and target_table in line[
+                                                                                 :50] and target_table + "_" not in line:
 
-                        except IndexError:
+                            data = line.split(" VALUES ", 1)[1]  #
+
+                            data = data.split("),(")
+                            data = [x.replace('`', '').strip(" (").strip(") ") for x in data]
+                            for y in data:
+                                newline = y.replace('`', '').replace("\t", "")
+                                newline = re.sub("(?<!, (?<=))\\\\'(?!, ')", "&quot ",
+                                                 newline)  # may need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
+
+                                #newline = y.replace('`', '').replace("\t", "").replace("\\'", "&quot ")
+                                newline = newline.strip(" ()\"")
+                                newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
+                                                   newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
+                                thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
+                                thing1 = [x.strip("'").replace("&quot ", "'").replace("\\\\","") for x in thing1] #add back in quote chars and remove slashes now that line hopefully parse and split properly
+                                # y = [y]
+                                # thing = next(csv.reader(y, quotechar="'", skipinitialspace=True))
+                                values.append(thing1)
+                    elif read_mode ==3:
+                        if line.lower().startswith('insert') and target_table in line[
+                                                                                 :50] and target_table + "_" not in line and line.endswith(
+                            "VALUES"):
                             pass
-                        except Exception as e:
-                            print(F"{line} fucked up because {str(e)}")
-                            print(read_mode)
-                            break
+                        else:
+                            # if line.endswith(";"): #added this if/else clause to deal with desking issue where script was getting values of all table sfor some reason, but then I lose last entry in table
+                            #   read_mode=0
+                            #  continue
+                            # else:
+                            line = line.strip("\t,")
+                            if ") VALUES (" in line:
+                                line = line.split(") VALUES ", 1)[1]
+                            if line[0]=="(" or "VALUES (" in line:
+                                data = re.findall('\((.*\))', line)  # get everythign between first and last occurance of parens
+                            else:
+                                data = [line] #for times when no parens oustide valies (rare)
+                            try:
+                                if len(
+                                        data) > 1:  # for tht etime swhere you have insert values wih all headers before the value sto be inserted, this doesnt matter anymore as getting all data bwn first and last parens
+                                    newline = data[1]
+                                else:
+                                    newline = data[0]
+                                newline = newline.replace('`', '').replace("\t", "").replace("\\\\","").replace("\\'", "&quot ")
+
+                                newline = newline.strip(
+                                    " ()\"")  # .replace("\\'","") #added second replace to get rid of escaped single quotation marks that were fucking up when split values. Originally split on commas but that was whole thing too
+                                # and now have issue with values like 'cjvhcvjcvc\\' need something that searches for
+                                # newline = next(csv.reader(newline,   skipinitialspace=True))#quotechar="'", removed quotechar for now as having too many issues with internal single quote issues, but now having issue where splits on comma inside
+
+                                # newline = re.split(r", (?=(?:'[^']*?(?: [^']*)*))|, (?=[^',]+(?:,|$))", newline) #using regex to avoid issue with single quote and comma splits
+                                newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
+                                                   newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
+                                # newline = [newline]
+                                thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
+                                thing1 = [x.strip(" '") for x in thing1]
+                                values.append(thing1)
+                                # need to
+                                if line.endswith(";") and not line.startswith(
+                                        "INSERT INTO"):  # added this if/else clause to deal with desking issue where script was getting values of all table sfor some reason, when added it above  I lose last entry in table, so now add it here so add data to list but after switch read-mode. Added extra line startswith cond as realized that when have insert into statements all the way down, those end with semi-colon
+                                    read_mode = 0
+                                    continue
+
+
+                            except IndexError:
+                                pass
+                            except Exception as e:
+                                print(F"{line} fucked up because {str(e)}")
+                                print(read_mode)
+                                break
+                except Exception as e:
+                    print(line,str(e))
+
             if not headers:
                 headers = backupheaders(dump_filename,ENCODING)
             values = [list(item) for item in set(tuple(row) for row in values)] #filter out exact duplicate entries, convert to tuple first as lists cant be hashed
@@ -481,18 +490,24 @@ def getridofuselesscolumns(file):
     import pandas as pd
     import numpy as np
 
-    df = pd.read_csv(file)
+    df = pd.read_csv(file,encoding="UTF8")
     df.replace("blank", np.nan, inplace=True)
-    df.replace("Lull", np.nan, inplace=True)
-    df.dropna(axis=1, how='all', inplace=True) #drop columsn where all rows empty
+    df.replace("Null", np.nan, inplace=True)
+    df = df.dropna(axis=1, thresh=int(.001 * len(df))) #drop all columns that have less than .001 values
+
+    df = df.astype("object") #convert to object as pandas converts in to float which is PITA and fucks up next line
+
     #df replace None,
-    df1 = df.dropna(axis=1, thresh=int(.001 * len(df))) #drop all columns that have less than .001 values
-    df1.replace(np.nan, '', regex=True, inplace=True) #replace nan with ""
+    df.replace(np.nan, '', regex=True, inplace=True) #replace nan with ""
+    droplist1 = [x for x in df.columns if all(len(str(y))<3 for y in df[x].tolist())]#find columns if all values only 1 character long e.g. 0,1 y, n
+    #droplist2 = [x for x in df.columns if all(len(str(int(y)))<3 for y in df[x].tolist() and all(type(x)==float for x in df[x].tolist()))]#find columns if all values only 1 character long e.g. 0,1 y, n
 
-    droplist = [x for x in df1.columns if all(len(str(y))<4 for y in df1[x].tolist())]#find columns if all values only 1 character long e.g. 0,1 y, n
-    df1.drop(droplist, axis=1, inplace=True) #drop them
+    df.drop(droplist, axis=1, inplace=True) #drop them
+    df.dropna(axis=1, how='all', inplace=True) #drop columsn where all rows empty
 
-    df1 = df1.applymap(str)
+    #convert all int floats to ints
+
+    df1 = df.applymap(str)
     df1.drop_duplicates(keep=False, inplace=True)
 
     df1.to_csv(file.replace(".csv","_cleaned.csv"), index=False, escapechar='\n')  # ignore newline character inside strings
@@ -548,6 +563,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", '-json', action='store_true', help="add this flag to convert to JSON, otherwise will convert to CSV by default")
     parser.add_argument('--filepath', '-f', help="where's the SQL")
+    parser.add_argument('--clean', '-c', help="clean a CSV")
+
     parser.add_argument("--encoding", '-e', action='store_true',help="add flag if want to specify encoding. Best not to at first.")
     if len(sys.argv[1:]) == 0:
         parser.print_help()
@@ -562,7 +579,10 @@ def main():
         ENCODING = True
     else:
         ENCODING = False
-    sqlconverter(args.filepath,format,get_encoding=ENCODING)
+    if args.clean:
+        getridofuselesscolumns(args.clean)
+    else:
+        sqlconverter(args.filepath,format,get_encoding=ENCODING)
 
 if __name__ == '__main__':
     main()
