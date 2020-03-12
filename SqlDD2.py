@@ -8,6 +8,8 @@ import sys
 from tqdm import tqdm
 import os
 from colorama import Fore
+from pathlib import Path
+
 
 
 #csv.field_size_limit(sys.maxsize) #add this to get around issue of having too many chars in CSV cell
@@ -257,7 +259,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                 headers = backupheaders(dump_filename,ENCODING)
             values = [list(item) for item in set(tuple(row) for row in values)] #filter out exact duplicate entries, convert to tuple first as lists cant be hashed
             if FORMAT == "csv":
-                filename = dump_filename.rsplit("\\", 1)[1].rsplit(".", 1)[0]
+                filename = Path(dump_filename).name.rsplit(".",1)[0]
                 basepath = os.path.dirname(dump_filename)#dump_filename.rsplit("\\", 1)[0]
                 if not os.path.exists(os.path.join(basepath,"SqlConversions")):
                     os.makedirs(os.path.join(basepath,"SqlConversions"))
@@ -525,13 +527,14 @@ def cleandir(dir):
 
 def sqlconverter(filepath,format,get_encoding=False):
     import pprint
+    from pathlib import Path
     pp = pprint.PrettyPrinter(indent=4)
     if get_encoding:
         ENCODING = predict_encoding(filepath)
         print (F"Identified encoding of file as {ENCODING}")
     else:
         ENCODING = "utf8"
-    filename =filepath.rsplit("\\",1)[1].rsplit(".",1)[0]
+    filename =Path(filepath).name.rsplit(".",1)[0]
     alljson = SQLtoJson(filepath,ENCODING,FORMAT=format)
     if alljson:
         basepath = filepath.rsplit("\\", 1)[0]
