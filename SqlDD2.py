@@ -91,7 +91,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
 
         with open(dump_filename, 'r', encoding=ENCODING,errors='replace') as f:
             count = 0
-            for line in f:
+            for line in tqdm(f,desc=f"Parsing..."):
 
                 line = line.strip()
                 if line.startswith('INSERT '): #took out the lowr as found one sql file where some lines began with insert as name or paswword
@@ -138,7 +138,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                     #get your headers
                     # get your values
                     if line.lower().startswith('insert') and target_table in line.split("(", 1)[0][
-                                                                             :50] and target_table + "_" not in line:
+                                                                             :50] and target_table + "_" not in line.split("(",1)[0]:
                         splitline = line.split(target_table)[1]
                         splitfirst = line.split(target_table)[0]
                         if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (
@@ -152,7 +152,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                                 read_mode = 3
                             #continue
 
-                    if line.lower().startswith('create table') and target_table in line and target_table + "_" not in line: # the "_" gets rid of false positives like target_table_1 etc but not target_table1
+                    if line.lower().startswith('create table') and target_table in line and target_table + "_" not in line.split("(",1)[0]: # the "_" gets rid of false positives like target_table_1 etc but not target_table1
                         splitline = line.split(target_table)[1]
                         splitfirst = line.split(target_table)[0]
                         if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (not splitfirst[-1].isdigit() and not splitfirst[-1].isalpha()):
@@ -182,7 +182,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                              #   break
                     elif read_mode ==2:
                         if line.lower().startswith('insert') and target_table in line[
-                                                                                 :50] and target_table + "_" not in line:
+                                                                                 :50] and target_table + "_" not in line.split("(",1)[0]:
 
                             data = line.split(" VALUES ", 1)[1]  #
 
@@ -204,7 +204,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                                 values.append(thing1)
                     elif read_mode ==3:
                         if line.lower().startswith('insert') and target_table in line[
-                                                                                 :50] and target_table + "_" not in line and line.endswith(
+                                                                                 :50] and target_table + "_" not in line.split("(",1)[0] and line.endswith(
                             "VALUES"):
                             pass
                         else:
@@ -443,7 +443,7 @@ def getvalues(line,target_table,getheaders=False):
     headers=""
     #headers=[]
     if getheaders:
-        if target_table in line[:50] and target_table + "_" not in line:
+        if target_table in line[:50] and target_table + "_" not in line.split("(",1)[0]:
             headers= re.findall('(?<=\()(.*?)(?=\))', line)[0]
             headers = headers.strip(' ()')
             headers = headers.split(",")
@@ -451,7 +451,7 @@ def getvalues(line,target_table,getheaders=False):
             headers.append("table_name")
 
     if line.lower().startswith('insert') and target_table in line[
-                                                             :50] and target_table + "_" not in line:
+                                                             :50] and target_table + "_" not in line.split("(",1)[0]:
 
         data = line.split(" VALUES", 1)[1]  #
         #if '),(' in data:
