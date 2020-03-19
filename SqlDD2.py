@@ -81,7 +81,7 @@ def tableSelectGUI(tablenames):
     choice = multchoicebox(msg, title, choices,preselect=None)
     return choice
 
-typelist  = ["email","username","alias","ipaddress"]
+typelist  = ["email","username","alias","ipaddress","ip_address"]
 
 def SQLtoJson(filename,ENCODING,FORMAT="json"):
     def find_tables(dump_filename):  # this works
@@ -94,7 +94,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
             for line in tqdm(f,desc=f"Parsing..."):
 
                 line = line.strip()
-                if line.startswith('INSERT '): #took out the lowr as found one sql file where some lines began with insert as name or paswword
+                if line.startswith('INSERT ') or line.startswith('insert  into'): #took out the lowr as found one sql file where some lines began with insert as name or paswword and added special circumstance for badly dumped dql
                     othertables = "Yup"
                 if line.lower().startswith('create table'):
                     # print (line)
@@ -138,7 +138,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                     #get your headers
                     # get your values
                     if line.lower().startswith('insert') and target_table in line.split("(", 1)[0][
-                                                                             :50] and target_table + "_" not in line.split("(",1)[0]:
+                                                                             :50] and target_table + "_" not in line.split("(",1)[0] and "_"+target_table not in line.split("(",1)[0]:
                         splitline = line.split(target_table)[1]
                         splitfirst = line.split(target_table)[0]
                         if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (
@@ -152,7 +152,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                                 read_mode = 3
                             #continue
 
-                    if line.lower().startswith('create table') and target_table in line and target_table + "_" not in line.split("(",1)[0]: # the "_" gets rid of false positives like target_table_1 etc but not target_table1
+                    if line.lower().startswith('create table') and target_table in line and target_table + "_" not in line.split("(",1)[0] and "_"+target_table not in line.split("(",1)[0]: # the "_" gets rid of false positives like target_table_1 etc but not target_table1
                         splitline = line.split(target_table)[1]
                         splitfirst = line.split(target_table)[0]
                         if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (not splitfirst[-1].isdigit() and not splitfirst[-1].isalpha()):
@@ -386,7 +386,8 @@ def NoCreateTable(dump_filename,ENCODING):
     with open(dump_filename, 'r', encoding=ENCODING, errors='replace') as f:
         for line in tqdm(f):
             try:
-                tablename = line[line.find("INSERT INTO")+len("INSERT INTO"):].split()[0].strip("`")
+                insertstatement = re.findall(r'\binsert\W+(?:\w+\W+)?into\b', line, re.IGNORECASE)[0] #to account for various in insert statements like "insert   into", "INSERT INTO" etc
+                tablename = line[line.find(insertstatement)+len(insertstatement):].split("(")[0].strip(" `")
 
                 if line.split(tablename, maxsplit=1)[-1].split(maxsplit=1)[0].startswith("VALUES"): #check if just have insert statements without headers
 
@@ -453,10 +454,14 @@ def getvalues(line,target_table,getheaders=False):
     if line.lower().startswith('insert') and target_table in line[
                                                              :50] and target_table + "_" not in line.split("(",1)[0]:
 
-        data = line.split(" VALUES", 1)[1]  #
+        try:
+            data = line.split(" VALUES", 1)[1]  #
+        except:
+            data = line.split(" values", 1)[1]  #
+
         #if '),(' in data:
 
-        data = data.split("),(")
+        data = ["("+(x)+")" for x in data.split('),(')[1:]]
 
         data = [re.findall('\((.*\))', x) for x in data]
 
@@ -497,14 +502,24 @@ def getridofuselesscolumns(file):
     df.replace("Null", np.nan, inplace=True)
     df = df.dropna(axis=1, thresh=int(.001 * len(df))) #drop all columns that have less than .001 values
 
-    df = df.astype("object") #convert to object as pandas converts in to float which is PITA and fucks up next line
 
     #df replace None,
-    df.replace(np.nan, '', regex=True, inplace=True) #replace nan with ""
-    droplist1 = [x for x in df.columns if all(len(str(y))<3 for y in df[x].tolist())]#find columns if all values only 1 character long e.g. 0,1 y, n
-    #droplist2 = [x for x in df.columns if all(len(str(int(y)))<3 for y in df[x].tolist() and all(type(x)==float for x in df[x].tolist()))]#find columns if all values only 1 character long e.g. 0,1 y, n
+    droplist2 = []
+    for x in df.columns:
+        if x not in ["id","userid"]:
+            if df[x].dtype in ["int64","float64"]:
+                if all(float(y)<10000 for y in df[x].dropna()):
+                    droplist2.append(x)
 
-    df.drop(droplist, axis=1, inplace=True) #drop them
+    df.drop(droplist2, axis=1, inplace=True) #drop them
+    df.replace(np.nan, '', regex=True, inplace=True) #replace nan with ""
+    droplist = [x for x in df.columns if all(
+        len(str(y)) < 3 for y in df[x].tolist())]  # find columns if all values only 1 character long e.g. 0,1 y, n
+    # droplist2 = [x for x in df.columns if all(len(str(int(y)))<3 for y in df[x].tolist() and all(type(x)==float for x in df[x].tolist()))]#find columns if all values only 1 character long e.g. 0,1 y, n
+    df.drop(droplist, axis=1, inplace=True)  # drop them
+
+    df = df.astype("object") #convert to object as pandas converts in to float which is PITA and fucks up next line
+
     df.dropna(axis=1, how='all', inplace=True) #drop columsn where all rows empty
 
     #convert all int floats to ints
