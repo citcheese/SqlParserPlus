@@ -82,6 +82,10 @@ def tableSelectGUI(tablenames):
     return choice
 
 typelist  = ["email","username","alias","ipaddress","ip_address"]
+regexp = re.compile(r"\),\((?=(?:[^']*'[^']*')*[^']*$)") #use this to get instance of "),(", change capturing groupthat aren't within a record so can determine if looking at list of records on one line, or one record per line. See here for getting rid of captured groups so only match on full match https://stackoverflow.com/questions/31915018/re-findall-behaves-weird/31915134#31915134
+valregex = re.compile(r"\) values ",re.IGNORECASE)
+valregex2 = re.compile(r"\) values \(",re.IGNORECASE)
+
 
 def SQLtoJson(filename,ENCODING,FORMAT="json"):
     def find_tables(dump_filename):  # this works
@@ -144,7 +148,8 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                         if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (
                                 not splitfirst[-1].isdigit() and not splitfirst[
                             -1].isalpha()):  # take care of when have targetable accounts and dont want values from tables called accounts1 or useraccounts
-                            if '),(' in line:  # when sql dump is not line seperated
+                            if regexp.search(line):
+                            #if '),(' in line:  # when sql dump is not line seperated
                                 read_mode = 2  # print(line) #dont think need these read modes anymore but kept as legacy just in case
                                 # continue
 
@@ -184,9 +189,11 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                         if line.lower().startswith('insert') and target_table in line[
                                                                                  :50] and target_table + "_" not in line.split("(",1)[0]:
 
-                            data = line.split(" VALUES ", 1)[1]  #
+                            data =re.split(valregex,line,1)[1] #max split of 1
+                            #data = line.split(" VALUES ", 1)[1]  #
 
-                            data = data.split("),(")
+                            data = re.split(regexp,data)
+                            #data = data.split("),(")
                             data = [x.replace('`', '').strip(" (").strip(") ") for x in data]
                             for y in data:
                                 newline = y.replace('`', '').replace("\t", "")
@@ -213,8 +220,9 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                             #  continue
                             # else:
                             line = line.strip("\t,")
-                            if ") VALUES (" in line:
-                                line = line.split(") VALUES ", 1)[1]
+                            if valregex2.search(line):
+                                line = re.split(valregex, line, 1)[1]
+                                #line = line.split(") VALUES ", 1)[1]
                             if line[0]=="(" or "VALUES (" in line:
                                 data = re.findall('\((.*\))', line)  # get everythign between first and last occurance of parens
                             else:
@@ -420,7 +428,9 @@ def NoCreateTable(dump_filename,ENCODING):
                 print (F"{line} failed because of {str(e)}")
     if allvalues:
         flat_list = [item for sublist in allvalues for item in sublist] #flatten list
-        filename = dump_filename.rsplit("\\", 1)[1].rsplit(".", 1)[0]
+        filename = Path(dump_filename).name.rsplit(".", 1)[0]
+
+        #filename = dump_filename.rsplit("\\", 1)[1].rsplit(".", 1)[0]
         basepath = os.path.dirname(dump_filename)  # dump_filename.rsplit("\\", 1)[0]
         if not os.path.exists(os.path.join(basepath, "SqlConversions")):
             os.makedirs(os.path.join(basepath, "SqlConversions"))
@@ -461,7 +471,9 @@ def getvalues(line,target_table,getheaders=False):
 
         #if '),(' in data:
 
-        data = ["("+(x)+")" for x in data.split('),(')[1:]]
+        data = ["("+(x)+")" for x in re.split(regexp,data)[1:]]
+
+        #data = ["("+(x)+")" for x in data.split('),(')[1:]]
 
         data = [re.findall('\((.*\))', x) for x in data]
 
@@ -508,7 +520,7 @@ def getridofuselesscolumns(file):
     for x in df.columns:
         if x not in ["id","userid"]:
             if df[x].dtype in ["int64","float64"]:
-                if all(float(y)<10000 for y in df[x].dropna()):
+                if all(float(y)<1000 for y in df[x].dropna()):
                     droplist2.append(x)
 
     df.drop(droplist2, axis=1, inplace=True) #drop them
