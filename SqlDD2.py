@@ -11,7 +11,7 @@ from colorama import Fore
 from pathlib import Path
 
 
-
+#maybe add function for good only, only get
 #csv.field_size_limit(sys.maxsize) #add this to get around issue of having too many chars in CSV cell
 maxInt = sys.maxsize
 
@@ -68,11 +68,11 @@ TO DO:
  Todo: would be great if when offered table selection, gave you first line of the table, but thats PITA
  """
 
-def tableSelectGUI(tablenames):
+def tableSelectGUI(tablenames,filename):
     tablecount = str(len(tablenames))
-    msg = f"Found {tablecount} tables. Select Ones You want to Extract (best looking ones at top)"
+    msg = f"Found {tablecount} tables in {Path(filename).name}. Select Ones You want to Extract (best looking ones at top)"
     title = "Table Selection"
-    iwant = ["account", "member", "user"]
+    iwant = ["account", "member", "user","admins","clients","customers"]
     tablenames.sort()
     upfirst = [x for x in tablenames if any(y in x for y in iwant)] #put tables with info i like up first
     tot = upfirst + tablenames
@@ -83,13 +83,13 @@ def tableSelectGUI(tablenames):
 
 typelist  = ["email","username","alias","ipaddress","ip_address"]
 regexp = re.compile(r"\),\((?=(?:[^']*'[^']*')*[^']*$)") #use this to get instance of "),(", change capturing groupthat aren't within a record so can determine if looking at list of records on one line, or one record per line. See here for getting rid of captured groups so only match on full match https://stackoverflow.com/questions/31915018/re-findall-behaves-weird/31915134#31915134
-valregex = re.compile(r"\) values ",re.IGNORECASE)
-valregex2 = re.compile(r"\) values \(",re.IGNORECASE)
+valregex = re.compile(r" values ?\(",re.IGNORECASE) #re.compile(r"\) values ",re.IGNORECASE) q mark matches space 0 or 100 times
+valregex2 = re.compile(r" values \(",re.IGNORECASE)
 
 
-def SQLtoJson(filename,ENCODING,FORMAT="json"):
+def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
     def find_tables(dump_filename):  # this works
-        print("Getting tables from SQL dump")
+        print(f"Getting tables from {Path(dump_filename).name}")
         table_list = []
         othertables = ""
 
@@ -116,15 +116,15 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                 count+=1
         table_list = list(set(table_list))
         if len(table_list) >0:
-            print (F"Found the following {Fore.LIGHTBLUE_EX}{str(len(table_list))} {Fore.RESET}tables:")
+            print (F"Found {Fore.LIGHTBLUE_EX}{str(len(table_list))} {Fore.RESET}tables:")
         table_list.sort()
-        for y in table_list:
-            print(F"\t{y}")
+        #for y in table_list:
+         #   print(F"\t{y}")
         return (table_list,othertables)
 
     tables,othertables = find_tables(filename)
 
-    def read_dump(dump_filename, target_table):
+    def read_dump(dump_filename, target_table,dumbdump=False):
 
         #print (F"Grabbing values for table: {target_table}")
         with open(dump_filename,'r',encoding=ENCODING,errors='replace') as f: #sometimes there are stupid encoding issues where certain char cant be read by encoder, so fuck em
@@ -134,28 +134,39 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
             items = []
             values = []
             for line in tqdm(f,desc=f"Parsing {Fore.LIGHTBLUE_EX}{target_table}{Fore.RESET} table"):
-                #print(str(read_mode))
+                #if read_mode !=0:
+                 #   print(str(read_mode))
                 try:
                     line = line.strip()
                     #have issues with common tablenames like users where that word is in that line so really need proximity search or maybe search just first x characters, added [:50] fuck yes, seems to work
                     #having issues where common term
                     #get your headers
                     # get your values
-                    if line.lower().startswith('insert') and target_table in line.split("(", 1)[0][
-                                                                             :50] and target_table + "_" not in line.split("(",1)[0] and "_"+target_table not in line.split("(",1)[0]:
-                        splitline = line.split(target_table)[1]
-                        splitfirst = line.split(target_table)[0]
-                        if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (
-                                not splitfirst[-1].isdigit() and not splitfirst[
-                            -1].isalpha()):  # take care of when have targetable accounts and dont want values from tables called accounts1 or useraccounts
+                    if dumbdump:
+                        if line.strip().startswith("("):
                             if regexp.search(line):
-                            #if '),(' in line:  # when sql dump is not line seperated
+                                # if '),(' in line:  # when sql dump is not line seperated
                                 read_mode = 2  # print(line) #dont think need these read modes anymore but kept as legacy just in case
                                 # continue
 
                             else:
                                 read_mode = 3
-                            #continue
+                    else:
+                        if line.lower().startswith('insert') and target_table in line.split("(", 1)[0][
+                                                                                 :50] and target_table + "_" not in line.split("(",1)[0] and "_"+target_table not in line.split("(",1)[0]:
+                            splitline = line.split(target_table)[1]
+                            splitfirst = line.split(target_table)[0]
+                            if not splitline or not splitline[0].isdigit() and not splitline[0].isalpha() and (
+                                    not splitfirst[-1].isdigit() and not splitfirst[
+                                -1].isalpha()):  # take care of when have targetable accounts and dont want values from tables called accounts1 or useraccounts
+                                if regexp.search(line):
+                                #if '),(' in line:  # when sql dump is not line seperated
+                                    read_mode = 2  # print(line) #dont think need these read modes anymore but kept as legacy just in case
+                                    # continue
+
+                                else:
+                                    read_mode = 3
+                                #continue
 
                     if line.lower().startswith('create table') and target_table in line and target_table + "_" not in line.split("(",1)[0] and "_"+target_table not in line.split("(",1)[0]: # the "_" gets rid of false positives like target_table_1 etc but not target_table1
                         splitline = line.split(target_table)[1]
@@ -188,14 +199,16 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                     elif read_mode ==2:
                         if line.lower().startswith('insert') and target_table in line[
                                                                                  :50] and target_table + "_" not in line.split("(",1)[0]:
-
-                            data =re.split(valregex,line,1)[1] #max split of 1
+                            #print("AL")
+                            data =re.split(valregex,line,1)[1].strip("\n\r;") #max split of 1
                             #data = line.split(" VALUES ", 1)[1]  #
 
-                            data = re.split(regexp,data)
-                            #data = data.split("),(")
+                            #data = re.split(regexp,data) #for some reason doesnt work properly in file encontrame.sql
+                            data = data.split("),(")
                             data = [x.replace('`', '').strip(" (").strip(") ") for x in data]
+                            #print("BC")
                             for y in data:
+                                #print("Adding line")
                                 newline = y.replace('`', '').replace("\t", "")
                                 newline = re.sub("(?<!, (?<=))\\\\'(?!, ')", "&quot ",
                                                  newline)  # may need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
@@ -209,6 +222,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                                 # y = [y]
                                 # thing = next(csv.reader(y, quotechar="'", skipinitialspace=True))
                                 values.append(thing1)
+                                #print("line added")
                     elif read_mode ==3:
                         if line.lower().startswith('insert') and target_table in line[
                                                                                  :50] and target_table + "_" not in line.split("(",1)[0] and line.endswith(
@@ -223,7 +237,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                             if valregex2.search(line):
                                 line = re.split(valregex, line, 1)[1]
                                 #line = line.split(") VALUES ", 1)[1]
-                            if line[0]=="(" or "VALUES (" in line:
+                            if line.strip()[0]=="(" or "VALUES (" in line or "VALUES(" in line:
                                 data = re.findall('\((.*\))', line)  # get everythign between first and last occurance of parens
                             else:
                                 data = [line] #for times when no parens oustide valies (rare)
@@ -248,10 +262,13 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                                 thing1 = [x.strip(" '") for x in thing1]
                                 values.append(thing1)
                                 # need to
+
+                                #These lines may not be needed anymore. messed up some other files. we'll see. nope still need it
                                 if line.endswith(";") and not line.startswith(
                                         "INSERT INTO"):  # added this if/else clause to deal with desking issue where script was getting values of all table sfor some reason, when added it above  I lose last entry in table, so now add it here so add data to list but after switch read-mode. Added extra line startswith cond as realized that when have insert into statements all the way down, those end with semi-colon
                                     read_mode = 0
                                     continue
+
 
 
                             except IndexError:
@@ -261,17 +278,17 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                                 print(read_mode)
                                 break
                 except Exception as e:
-                    print(line,str(e))
+                    print(line[:100],str(e))
 
             if not headers:
                 headers = backupheaders(dump_filename,ENCODING)
             values = [list(item) for item in set(tuple(row) for row in values)] #filter out exact duplicate entries, convert to tuple first as lists cant be hashed
             if FORMAT == "csv":
-                filename = Path(dump_filename).name.rsplit(".",1)[0]
+                filename = Path(dump_filename).name.rsplit(".",1)[0].strip()
                 basepath = os.path.dirname(dump_filename)#dump_filename.rsplit("\\", 1)[0]
-                if not os.path.exists(os.path.join(basepath,"SqlConversions")):
-                    os.makedirs(os.path.join(basepath,"SqlConversions"))
-                bpath = os.path.join(basepath,"SqlConversions")
+                if not os.path.exists(os.path.join(basepath,"SqlConversions",filename)):
+                    os.makedirs(os.path.join(basepath,"SqlConversions",filename))
+                bpath = os.path.join(basepath,"SqlConversions",filename)
                 if [x for x in headers if any(y in x for y in typelist)]:
                     if not os.path.exists(os.path.join(bpath, "Good Ones")):
                         os.makedirs(os.path.join(bpath, "Good Ones"))
@@ -298,30 +315,46 @@ def SQLtoJson(filename,ENCODING,FORMAT="json"):
                     items.append(item)
 
                 return items
-
+    if dumpall:
+        mintables = 10
+    else:
+        mintables =1
     if not othertables:
-        print("Can't find an 'INSERT' statement. Maybe it's not a proper SQL dump?")
-        with open(filename, 'r', encoding=ENCODING, errors='replace') as f:
-            firstlines = [next(f) for x in range(10)]
-            print("I dunno, here's what the first 10 or so lines look like, you tell me")
-        firstlines = [x for x in firstlines if x != '\n']
-        for x in firstlines:
-            print(x)
-        import sys
-        sys.exit()
+        print("Can't find an 'INSERT' statement. Maybe it's not a proper SQL dump. Let me try something")
+        try:
+            for x in tables:
+                allitems = read_dump(filename, x,dumbdump=True)
+        except Exception as e:
+            with open(filename, 'r', encoding=ENCODING, errors='replace') as f:
+                firstlines = [next(f) for x in range(10)]
+            print("I give up, here's what the first 10 or so lines look like, you tell me")
+            firstlines = [x for x in firstlines if x != '\n']
+            for x in firstlines:
+                print(x)
+        tablechoices = []
         #quit()
-    elif len(tables) >1:
-        tablechoices = tableSelectGUI(tables)
+    elif len(tables) >mintables:
+        tablechoices = tableSelectGUI(tables,filename)
     else:
         tablechoices = tables
     if len(tables)==0:
         print("No proper tables found! So going to try running the NoTableFunction and see what happens")
-        everything = NoCreateTable(filename,ENCODING)
+        everything = NoCreateTable(filename,ENCODING,norepeatinginsert=True)
+        if not everything:
+            print("  Trying something else...")
+            everything = NoCreateTable(filename, ENCODING,norepeatinginsert=False)
+            if not everything:
+                print("  No luck oh well. Should prob open the file and see what's going on")
+
+
     else:
         everything =[]
         if tablechoices:
+            count = 0
             for x in tablechoices:
                 try:
+                    count +=1
+                    print(f"{count}/{len(tablechoices)}\n")
                     allitems = read_dump(filename,x)
                     if FORMAT == "json":
                         if len(allitems) ==1:
@@ -372,17 +405,20 @@ def has_no_proper_create_table_or_repeatinG_insert(dump_filename,ENCODING):#when
     headers = headers.split(",")
     headers = [x.strip(" `") for x in headers]
     for x in content:
-        if x.count(",") >3 and x.strip(" ").startswith("("): #check if line has more than 3 commas and begins with parens
-            newline = x.strip(' ()')
-            newline = newline.replace('`', '')
-            newline = [newline]
-            newline = [x.replace('\0', '') for x in newline]  # elimate null bytes
-            thing1 = next(csv.reader(newline, quotechar="'", skipinitialspace=True))
+        if x.count(",") >3 and x.strip(" \t").startswith("("): #check if line has more than 3 commas and begins with parens
+            newline = x.strip('  \t()')
+            newline = newline.replace('`', '').replace('\0', '')
+            #newline = [newline]
+            #newline = [x.replace('\0', '') for x in newline]  # elimate null bytes
+            newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
+                               newline)
+            thing1 = [x.replace("&quot ", "'").strip(" '").replace("\\\\", "") for x in
+                      newline]
             item = dict(zip(headers, thing1))
             item['table'] = tablename
             items.append(item)
 
-def NoCreateTable(dump_filename,ENCODING):
+def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
     items = []
     allvalues = []
     #headers = []
@@ -390,43 +426,48 @@ def NoCreateTable(dump_filename,ENCODING):
     tablenames =[]
     tables =[]
     tableheader = []
+    tablename = ""
 
     with open(dump_filename, 'r', encoding=ENCODING, errors='replace') as f:
         for line in tqdm(f):
-            try:
-                insertstatement = re.findall(r'\binsert\W+(?:\w+\W+)?into\b', line, re.IGNORECASE)[0] #to account for various in insert statements like "insert   into", "INSERT INTO" etc
-                tablename = line[line.find(insertstatement)+len(insertstatement):].split("(")[0].strip(" `")
-
-                if line.split(tablename, maxsplit=1)[-1].split(maxsplit=1)[0].startswith("VALUES"): #check if just have insert statements without headers
-
-                    tablename["values"].append(getvalues(line,tablename)[0])
+            #try:
+            if line.strip():#check if line not empty
+                if re.findall(r'\binsert\W+(?:\w+\W+)?into\b', line, re.IGNORECASE):
+                    insertstatement = re.findall(r'\binsert\W+(?:\w+\W+)?into\b', line, re.IGNORECASE)[0] #to account for various in insert statements like "insert   into", "INSERT INTO" etc
+                    tablename = line[line.find(insertstatement)+len(insertstatement):].split("(")[0].strip(" `\n")
+                if tablename:
+                    if "VALUES" in line:
+                        if line.split(tablename, maxsplit=1)[-1].split(maxsplit=1)[0].startswith("VALUES"): #check if just have insert statements without headers
+                            allvalues.append(getvalues(line,tablename,norepeatinginsert=norepeatinginsert)[0])
+                        else:
+                            # headers= re.findall('(?<=\()(.*?)(?=\))', line)[0] #get first parens here
+                            # values =line[line.find("VALUES")+len("VALUES"):].split()[0]
+                            value, header = getvalues(line, tablename, getheaders=True,
+                                                      norepeatinginsert=norepeatinginsert)
+                            allvalues.append(value)
+                            if tablename not in tablenames:
+                                tablenames.append(tablename)
+                                # if f"{tablename}:{header}" not in tableheader:
+                                tableheader.append({tablename: header})
+                            #tablename["values"].append(getvalues(line,tablename)[0])
+                    else:
+                        #headers= re.findall('(?<=\()(.*?)(?=\))', line)[0] #get first parens here
+                        #values =line[line.find("VALUES")+len("VALUES"):].split()[0]
+                        value,header=getvalues(line, tablename,getheaders=True,norepeatinginsert=norepeatinginsert)
+                        allvalues.append(value)
+                        if tablename not in tablenames:
+                            tablenames.append(tablename)
+                        #if f"{tablename}:{header}" not in tableheader:
+                            tableheader.append({tablename:header})
                 else:
-                    #headers= re.findall('(?<=\()(.*?)(?=\))', line)[0] #get first parens here
-                    #values =line[line.find("VALUES")+len("VALUES"):].split()[0]
-                    value,header=getvalues(line, tablename,getheaders=True)
-                    allvalues.append(value)
-                    if tablename not in tablenames:
-                        tablenames.append(tablename)
-                    #if f"{tablename}:{header}" not in tableheader:
-                        tableheader.append({tablename:header})
-                    """
-                    values = values.strip(' ();')
-                    values = values.replace('`', '')
-                    newline = [values]
-                    newline = [x.replace('\0', '') for x in newline]  # elimate null bytes
-                    thing1 = next(csv.reader(newline, quotechar="'", skipinitialspace=True))
-                    thing1 = [x.strip("'") for x in thing1]
-                    # if len(x) == len(headers):
-                    item = dict(zip(headers, thing1))
-                    item['table'] = tablename
-                    items.append(item)
-                    """
+                    allvalues.append(getvalues(line, tablename,norepeatinginsert=True)[0])
 
-            except IndexError:
-                pass
-            except Exception as e:
-                print (F"{line} failed because of {str(e)}")
+            #except IndexError:
+             #   pass
+            #except Exception as e:
+               # print (F"{line[:80]} failed because of {str(e)}")
     if allvalues:
+        print("   Whoa looks like was able to grab some data!")
         flat_list = [item for sublist in allvalues for item in sublist] #flatten list
         filename = Path(dump_filename).name.rsplit(".", 1)[0]
 
@@ -435,21 +476,33 @@ def NoCreateTable(dump_filename,ENCODING):
         if not os.path.exists(os.path.join(basepath, "SqlConversions")):
             os.makedirs(os.path.join(basepath, "SqlConversions"))
         bpath = os.path.join(basepath, "SqlConversions")
-        for x in tableheader: #create seperate csvs for each table
-
-            with open(os.path.join(bpath, F"{filename} - {next(iter(x))}.csv"), "w", encoding=ENCODING, newline='') as f:
+        if tableheader:
+            for x in tableheader: #create seperate csvs for each table
+                print(F"    Generating CSV...")
+                with open(os.path.join(bpath, F"{filename} - {next(iter(x))}.csv"), "w", encoding=ENCODING, newline='') as f:
+                    writer = csv.writer(f)
+    ###issue with headers, sometimes worong, sometimes too short, not sure what going on - similiar TABLENAMES!
+                    if x[next(iter(x))]:
+                        writer.writerow(
+                        x[next(iter(x))])
+                    for row in flat_list:
+                        if row[-1] ==next(iter(x)): #check if table we want is in value because added tablename to last column of values
+                            writer.writerow([z.strip('"') for z in row])
+        else:
+            print(F"    Generating CSV...")
+            with open(os.path.join(bpath, F"{filename} - tableX.csv"), "w", encoding=ENCODING,
+                      newline='') as f:
                 writer = csv.writer(f)
-###issue with headers, sometimes worong, sometimes too short, not sure what going on - similiar TABLENAMES!
-                if header:
-                    writer.writerow(
-                    x[next(iter(x))])
+                ###issue with headers, sometimes worong, sometimes too short, not sure what going on - similiar TABLENAMES!
+
                 for row in flat_list:
-                    if row[-1] ==next(iter(x)):
-                        writer.writerow([z.strip('"') for z in row])
+
+                    writer.writerow([z.strip('"') for z in row])
+        return "YUP"
     else:
         return items
 
-def getvalues(line,target_table,getheaders=False):
+def getvalues(line,target_table,getheaders=False,norepeatinginsert=False):
     values=[]
     headers=""
     #headers=[]
@@ -460,8 +513,11 @@ def getvalues(line,target_table,getheaders=False):
             headers = headers.split(",")
             headers = [x.strip(" `") for x in headers]
             headers.append("table_name")
-
-    if line.lower().startswith('insert') and target_table in line[
+    data = ""
+    if norepeatinginsert:
+        if line.count(",") > 3 and line.strip(" \t").startswith("("):
+            data = line
+    elif line.lower().startswith('insert') and target_table in line[
                                                              :50] and target_table + "_" not in line.split("(",1)[0]:
 
         try:
@@ -471,10 +527,14 @@ def getvalues(line,target_table,getheaders=False):
 
         #if '),(' in data:
 
-        data = ["("+(x)+")" for x in re.split(regexp,data)[1:]]
+    if data.strip("\r\n"):
+        if regexp.search(data):
+            data = ["("+(x)+")" for x in re.split(regexp,data)[1:]]
 
         #data = ["("+(x)+")" for x in data.split('),(')[1:]]
 
+        else:
+            data = [data]
         data = [re.findall('\((.*\))', x) for x in data]
 
         for y in data:
@@ -510,17 +570,33 @@ def getridofuselesscolumns(file):
     import numpy as np
 
     df = pd.read_csv(file,encoding="UTF8")
-    df.replace("blank", np.nan, inplace=True)
-    df.replace("Null", np.nan, inplace=True)
-    df = df.dropna(axis=1, thresh=int(.001 * len(df))) #drop all columns that have less than .001 values
 
+
+    columnsdontwant = ["avatartype","birthdayprivacy","threadmode","buddylist","awaydate","returndate","totalpms","usergroupid",
+                       "avatardimensions","additionalgroups","daysprune","ignorelist","pmfolders","notepad","referrer",
+                       "timeonline", "moderationtime",
+                        "postnum","membergroupids","warn_last","joined","usertitle","displaygroupid",'joindate', 'lastvisit',
+                       'lastactivity', 'lastpost', 'lastpostid', 'posts',"reputation","options",
+                       "birthday_search",'referrerid', 'emailstamp', 'pmtotal', 'pmunread',
+                       'profilevisits',"active","plan","timezone","table","passworddate","styleid",
+                       'referrerid', 'languageid', 'emailstamp', 'threadedmode', 'emailnotification',"profilevisits","friendcount","token","scheme"]
+    firstdrop = [x for x in df.columns if x in columnsdontwant]
+    df.drop(firstdrop, axis=1, inplace=True) #drop them
+    secdrop = [x for x in df.columns if "dbtech_" in x]
+    df.drop(secdrop, axis=1, inplace=True) #drop them
 
     #df replace None,
+    df.replace("blank", np.nan, inplace=True)
+    df.replace("Null", np.nan, inplace=True)
+    df.replace("NULL", np.nan, inplace=True)
+    df.replace("0000-00-00", np.nan, inplace=True)
+
+    df = df.dropna(axis=1, thresh=int(.001 * len(df)))  # drop all columns that have less than .001 values
     droplist2 = []
     for x in df.columns:
         if x not in ["id","userid"]:
             if df[x].dtype in ["int64","float64"]:
-                if all(float(y)<1000 for y in df[x].dropna()):
+                if all(float(y)<9999 for y in df[x].dropna()):
                     droplist2.append(x)
 
     df.drop(droplist2, axis=1, inplace=True) #drop them
@@ -545,14 +621,14 @@ def getridofuselesscolumns(file):
 
 
 def cleandir(dir):
-    for x in os.listdir(r"E:\Breached Databases\Let's Organize shit\Small website dbs_full\Topcon"):
+    for x in os.listdir(dir):
         try:
-            file = os.path.join(r"E:\Breached Databases\Let's Organize shit\Small website dbs_full\Topcon", x)
+            file = os.path.join(dir, x)
             getridofuselesscolumns(file)
         except Exception as e:
             print(x,str(e))
 
-def sqlconverter(filepath,format,get_encoding=False):
+def sqlconverter(filepath,format,get_encoding=False,dumpall=False):
     import pprint
     from pathlib import Path
     pp = pprint.PrettyPrinter(indent=4)
@@ -562,7 +638,11 @@ def sqlconverter(filepath,format,get_encoding=False):
     else:
         ENCODING = "utf8"
     filename =Path(filepath).name.rsplit(".",1)[0]
-    alljson = SQLtoJson(filepath,ENCODING,FORMAT=format)
+    alljson = SQLtoJson(filepath,ENCODING,FORMAT=format,dumpall=dumpall)
+    p = Path(filepath)
+
+      # move json file to jsonbackups folder to keep things tidy
+    """
     if alljson:
         basepath = filepath.rsplit("\\", 1)[0]
         if not os.path.exists(os.path.join(basepath, "SqlConversions")):
@@ -584,6 +664,10 @@ def sqlconverter(filepath,format,get_encoding=False):
             except Exception as e:
                 print (str(e))
                 return alljson
+    """
+
+def directoryconvert(directory):
+    import os
 
 
 def main():
@@ -593,7 +677,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", '-json', action='store_true', help="add this flag to convert to JSON, otherwise will convert to CSV by default")
     parser.add_argument('--filepath', '-f', help="where's the SQL")
+    parser.add_argument('--directory', '-dir', help="convert folder of sql files")
+
     parser.add_argument('--clean', '-c', help="clean a CSV")
+    parser.add_argument('--cleandir', '-cd', help="clean a directory of CSVs")
+
+    parser.add_argument('--dumpall', '-d', action='store_true',help="grab and convert every table")
+
 
     parser.add_argument("--encoding", '-e', action='store_true',help="add flag if want to specify encoding. Best not to at first.")
     if len(sys.argv[1:]) == 0:
@@ -601,6 +691,8 @@ def main():
         # parser.print_usage() # for just the usage line
         parser.exit()
     args = parser.parse_args()
+    #print(args.dumpall)
+    #sys.exit()
     if args.json:
         format = "json"
     else:
@@ -611,8 +703,27 @@ def main():
         ENCODING = False
     if args.clean:
         getridofuselesscolumns(args.clean)
-    else:
-        sqlconverter(args.filepath,format,get_encoding=ENCODING)
+    elif args.cleandir:
+        files = os.listdir(args.cleandir)
+        for x in files:
+            if x.endswith(".csv"):
+                filepath = os.path.join(args.cleandir, x)
+                try:
+                    getridofuselesscolumns(filepath)
+
+                except Exception as e:
+                    print(f"{filepath}:Fuked up::{str(e)}")
+    elif args.filepath:
+        sqlconverter(args.filepath,format,get_encoding=ENCODING,dumpall = args.dumpall)
+    elif args.directory:
+        files = os.listdir(args.directory)
+        for x in files:
+            if x.endswith(".sql"):
+                filepath = os.path.join(args.directory, x)
+                try:
+                    sqlconverter(filepath, format, get_encoding=ENCODING, dumpall=args.dumpall)
+                except Exception as e:
+                    print (f"{filepath}:Fuked up::{str(e)}")
 
 if __name__ == '__main__':
     main()
