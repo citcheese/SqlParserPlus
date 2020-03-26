@@ -613,7 +613,7 @@ def getridofuselesscolumns(file):
     #convert all int floats to ints
 
     df1 = df.applymap(str)
-    df1.drop_duplicates(keep=False, inplace=True)
+    df1.drop_duplicates(inplace=True)
 
     df1.to_csv(file.replace(".csv","_cleaned.csv"), index=False, escapechar='\n')  # ignore newline character inside strings
 
