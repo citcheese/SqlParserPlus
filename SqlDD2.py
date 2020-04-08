@@ -70,13 +70,41 @@ TO DO:
  Todo: would be great if when offered table selection, gave you first line of the table, but thats PITA
  """
 
+def extractemailsfromfile(filename,lineextractor=False):
+    from pathlib import Path
+    fpath = Path(filename).parent
+    fname = Path(filename).name.rsplit(".",1)[0]
+    fname = f"{fname}_emails.txt"
+    regex = re.compile("[\w\.-]+@[\w\.-]+\.\w+")
+    #regex = re.compile(("([a-z0-9!#$%&*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
+     #                   "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
+      #                  "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"))
+    emails = []
+
+    with open(filename,encoding="utf8",errors="replace") as f:
+        for s in tqdm(f, desc=f"Parsing {fname}"):
+            if lineextractor:
+                if regex.search(s.lower()):
+                    emails.append(s)
+            else:
+                em = [email for email in re.findall(regex, s.lower()) if not email[0].startswith('//')]
+                for x in em:
+                    if x not in emails:
+                        emails.append(x)
+
+    #allemails = list(set(get_emails(file_to_str(filename))))
+    with open(os.path.join(fpath,fname), "a",encoding="UTF8") as emailsfile:
+        for x in emails:
+            emailsfile.write(x + "\n")
+
+
 def tableSelectGUI(tablenames,filename):
     tablecount = str(len(tablenames))
     msg = f"Found {tablecount} tables in {Path(filename).name}. Select Ones You want to Extract (best looking ones at top)"
     title = "Table Selection"
-    iwant = ["account", "member", "user","admins","clients","customers"]
+    iwant = ["account", "member", "user","admins","clients","customers","skype","customer_entity"]
     tablenames.sort()
-    upfirst = [x for x in tablenames if any(y in x for y in iwant)] #put tables with info i like up first
+    upfirst = [x for x in tablenames if any(y in x.lower() for y in iwant)] #put tables with info i like up first
     tot = upfirst + tablenames
     choices = sorted(set(tot), key=tot.index) #get rid of duplicates while preserving order
     #choices = tablenames
@@ -147,7 +175,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                     #get your headers
                     # get your values
                     if dumbdump:
-                        if line.strip().startswith("("):
+                        if line.strip().startswith("(") or line.strip().startswith("VALUES"):
                             if regexp.search(line):
                                 # if '),(' in line:  # when sql dump is not line seperated
                                 read_mode = 2  # print(line) #dont think need these read modes anymore but kept as legacy just in case
@@ -211,16 +239,17 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                             #print("BC")
                             for y in data:
                                 #print("Adding line")
-                                newline = y.replace('`', '').replace("\t", "")
-                                newline = re.sub("(?<!, (?<=))\\\\'(?!, ')", "&quot ",
-                                                 newline)  # may need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
+                                thing1 = cleanline(y)
 
+                                #newline = y.replace('`', '').replace("\t", "")
+                                #newline = re.sub(r"(?<!, )(?<!\\)(?<=)\\'(?!, ')", "&quot ", newline)#multiple neg lookbehinds to ensur  # may need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
+                                #old re.sub regexes (?<!, (?<=))\\\\'(?!, ')
                                 #newline = y.replace('`', '').replace("\t", "").replace("\\'", "&quot ")
-                                newline = newline.strip(" ()\"")
-                                newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
-                                                   newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
-                                thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
-                                thing1 = [x.strip("'").replace("&quot ", "'").replace("\\\\","") for x in thing1] #add back in quote chars and remove slashes now that line hopefully parse and split properly
+                                #newline = newline.strip(" ()\"")
+                                #newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
+                                 #                  newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
+                                #thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
+                                #thing1 = [x.strip("'").replace("&quot ", "'").replace("\\\\","") for x in thing1] #add back in quote chars and remove slashes now that line hopefully parse and split properly
                                 # y = [y]
                                 # thing = next(csv.reader(y, quotechar="'", skipinitialspace=True))
                                 values.append(thing1)
@@ -235,7 +264,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                             # else:
                             line = line.strip("\t,")
                             if valregex2.search(line):
-                                line = re.split(valregex, line, 1)[1]
+                                line = "(" + re.split(valregex, line, 1)[1] #add intro parens back
                                 #line = line.split(") VALUES ", 1)[1]
                             if line.strip()[0]=="(" or "VALUES (" in line or "VALUES(" in line:
                                 data = re.findall('\((.*\))', line)  # get everythign between first and last occurance of parens
@@ -247,19 +276,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                                     newline = data[1]
                                 else:
                                     newline = data[0]
-                                newline = newline.replace('`', '').replace("\t", "").replace("\\\\","").replace("\\'", "&quot ")
-
-                                newline = newline.strip(
-                                    " ()\"")  # .replace("\\'","") #added second replace to get rid of escaped single quotation marks that were fucking up when split values. Originally split on commas but that was whole thing too
-                                # and now have issue with values like 'cjvhcvjcvc\\' need something that searches for
-                                # newline = next(csv.reader(newline,   skipinitialspace=True))#quotechar="'", removed quotechar for now as having too many issues with internal single quote issues, but now having issue where splits on comma inside
-
-                                # newline = re.split(r", (?=(?:'[^']*?(?: [^']*)*))|, (?=[^',]+(?:,|$))", newline) #using regex to avoid issue with single quote and comma splits
-                                newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
-                                                   newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
-                                # newline = [newline]
-                                thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
-                                thing1 = [x.strip(" '") for x in thing1]
+                                thing1 = cleanline(newline)
                                 values.append(thing1)
                                 # need to
 
@@ -390,6 +407,18 @@ def backupheaders (dump_filename,ENCODING):
     headers = [x.strip(" `") for x in headers]
     return headers
 
+def tsvtocsv(tsvfile):
+    bpath = Path(tsvfile).parent
+    filename = Path(tsvfile).name.split(".",1)[0]
+    csvfilename = filename + ".csv"
+    with open(tsvfile, 'r', encoding="utf8") as fin, \
+            open(os.path.join(bpath,csvfilename), 'w', encoding="utf8",
+                 newline='') as fout:
+        reader = csv.reader(fin, dialect='excel-tab', quoting=csv.QUOTE_NONE) #quote line added because got erro Error: field larger than field limit. some other options for this error: https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
+        writer = csv.writer(fout)
+        for row in reader:
+            writer.writerow(row)
+
 def has_no_proper_create_table_or_repeatinG_insert(dump_filename,ENCODING):#when need to use values from INSERT INTO table, and insert does not repeat - tested on time warner business class.sql
     items = []
     with open(dump_filename, 'r', encoding=ENCODING, errors='replace') as f:
@@ -418,6 +447,19 @@ def has_no_proper_create_table_or_repeatinG_insert(dump_filename,ENCODING):#when
             item['table'] = tablename
             items.append(item)
 
+def mergeresulhashedanddehashed(file1,resultfile,seperator):
+    df = pd.read_table(file1,header=None)
+    df = df[0].str.split(seperator, n=1, expand=True)
+
+    df.columns = ["email", "password_hash"]
+
+    dfres = pd.read_table(resultfile,header=None)
+    dfres = dfres[0].str.split(seperator, n=1, expand=True)
+    dfres.columns = ["email", "password_plain"]
+    df3 = pd.merge(df,dfres,on=["email"],how="outer")
+    df3.to_csv(file1.replace(".txt",".csv"),index=False)
+
+
 def isListEmpty(inList):
     if isinstance(inList, list): # Is a list
         return all( map(isListEmpty, inList) )
@@ -433,6 +475,11 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
     tables =[]
     tableheader = []
     tablename = ""
+    basepath = os.path.dirname(dump_filename)  # dump_filename.rsplit("\\", 1)[0]
+    if not os.path.exists(os.path.join(basepath, "SqlConversions")):
+        os.makedirs(os.path.join(basepath, "SqlConversions"))
+    bpath = os.path.join(basepath, "SqlConversions")
+    filename = Path(dump_filename).name.rsplit(".", 1)[0]
 
     with open(dump_filename, 'r', encoding=ENCODING, errors='replace') as f:
         for line in tqdm(f):
@@ -440,7 +487,7 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
             if line.strip():#check if line not empty
                 if re.findall(r'\binsert\W+(?:\w+\W+)?into\b', line, re.IGNORECASE):
                     insertstatement = re.findall(r'\binsert\W+(?:\w+\W+)?into\b', line, re.IGNORECASE)[0] #to account for various in insert statements like "insert   into", "INSERT INTO" etc
-                    tablename = line[line.find(insertstatement)+len(insertstatement):].split("(")[0].strip(" `\n")
+                    tablename = line[line.find(insertstatement)+len(insertstatement):].split("(")[0].strip(" `\n").strip('"')
                 if tablename:
                     if "VALUES" in line:
                         if line.split(tablename, maxsplit=1)[-1].split(maxsplit=1)[0].startswith("VALUES"): #check if just have insert statements without headers
@@ -448,9 +495,14 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
                         else:
                             # headers= re.findall('(?<=\()(.*?)(?=\))', line)[0] #get first parens here
                             # values =line[line.find("VALUES")+len("VALUES"):].split()[0]
-                            value, header = getvalues(line, tablename, getheaders=True,
+                            try:
+                                #print("yes")
+                                value, header = getvalues(line, tablename, getheaders=True,
                                                       norepeatinginsert=norepeatinginsert)
-                            allvalues.append(value)
+                                allvalues.append(value)
+                            except Exception as e:
+                                print(str(e),line)
+                                sys.exit()
                             if tablename not in tablenames:
                                 tablenames.append(tablename)
                                 # if f"{tablename}:{header}" not in tableheader:
@@ -459,8 +511,13 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
                     else:
                         #headers= re.findall('(?<=\()(.*?)(?=\))', line)[0] #get first parens here
                         #values =line[line.find("VALUES")+len("VALUES"):].split()[0]
-                        value,header=getvalues(line, tablename,getheaders=True,norepeatinginsert=norepeatinginsert)
-                        allvalues.append(value)
+                        try:
+                            value,header=getvalues(line, tablename,getheaders=True,norepeatinginsert=norepeatinginsert)
+                            allvalues.append(value)
+                        except:
+                            print(line)
+                            with open(os.path.join(bpath, f"{filename}_Errors.txt"), 'a') as outfile:
+                                outfile.write(line+"\n")
                         if tablename not in tablenames:
                             tablenames.append(tablename)
                         #if f"{tablename}:{header}" not in tableheader:
@@ -475,13 +532,9 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
     if not isListEmpty(allvalues):
         print("   Whoa looks like was able to grab some data!")
         flat_list = [item for sublist in allvalues for item in sublist] #flatten list
-        filename = Path(dump_filename).name.rsplit(".", 1)[0]
 
         #filename = dump_filename.rsplit("\\", 1)[1].rsplit(".", 1)[0]
-        basepath = os.path.dirname(dump_filename)  # dump_filename.rsplit("\\", 1)[0]
-        if not os.path.exists(os.path.join(basepath, "SqlConversions")):
-            os.makedirs(os.path.join(basepath, "SqlConversions"))
-        bpath = os.path.join(basepath, "SqlConversions")
+
         if tableheader:
             for x in tableheader: #create seperate csvs for each table
                 print(F"    Generating CSV...")
@@ -512,6 +565,8 @@ def getvalues(line,target_table,getheaders=False,norepeatinginsert=False):
     values=[]
     headers=""
     #headers=[]
+    tableregexp = re.compile(f"[`'\s]({target_table})[`'\s(]")
+
     if getheaders:
         if target_table in line[:50] and target_table + "_" not in line.split("(",1)[0]:
             headers= re.findall('(?<=\()(.*?)(?=\))', line)[0]
@@ -523,16 +578,23 @@ def getvalues(line,target_table,getheaders=False,norepeatinginsert=False):
     if norepeatinginsert:
         if line.count(",") > 3 and line.strip(" \t").startswith("("):
             data = line
-    elif line.lower().startswith('insert') and target_table in line[
-                                                             :50] and target_table + "_" not in line.split("(",1)[0]:
+
+    elif line.lower().startswith('insert') and tableregexp.search(line.split("(",1)[0]):
 
         try:
             data = line.split(" VALUES", 1)[1]  #
         except:
-            data = line.split(" values", 1)[1]  #
-
+            try:
+                data = line.split(" values", 1)[1]  #
+            except:
+                data = line.split("VALUES ",1)[1]
+    elif line[0].strip() =="(":
+        #data = re.findall('\((.*\))', line)
+        data = line
         #if '),(' in data:
-
+    elif line.count(",") > 3 and line.strip(" \t").startswith("VALUES"):
+        print("yes")
+        data = "("+line.split("VALUES(",1)[1]
     if data.strip("\r\n"):
         if regexp.search(data):
             data = ["("+(x)+")" for x in re.split(regexp,data)[1:]]
@@ -546,19 +608,12 @@ def getvalues(line,target_table,getheaders=False,norepeatinginsert=False):
         for y in data:
             y = [x.replace('`', '').strip(" (").strip(") ") for x in y]
 
-            if len(
-                    y) > 1:  # for tht etime swhere you have insert values wih all headers before the value sto be inserted, this doesnt matter anymore as getting all data bwn first and last parens
+            if len(y) > 1:  # for tht etime swhere you have insert values wih all headers before the value sto be inserted, this doesnt matter anymore as getting all data bwn first and last parens
                 y = y[1]
             else:
                 y = y[0]
-            newline = y.replace('`', '').replace("\t", "")#.replace("\\'", "&quot ") #if not next two chars ',
-            newline = re.sub("(?<!, (?<=))\\\\'(?!, ')","&quot ",newline)#may need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
-            newline = newline.strip(" ()\"")
-            newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
-                               newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
-            thing1 = [x.replace('\0', '') for x in newline]  # elimate null bytes
-            thing1 = [x.replace("&quot ", "'").strip(" '").replace("\\\\", "") for x in
-                      thing1]  # add back in quote chars and remove slashes now that line hopefully parse and split properly
+            thing1 = cleanline(y)
+              # add back in quote chars and remove slashes now that line hopefully parse and split properly
             thing1.append(target_table)
             # y = [y]
             # thing = next(csv.reader(y, quotechar="'", skipinitialspace=True))
@@ -567,25 +622,76 @@ def getvalues(line,target_table,getheaders=False,norepeatinginsert=False):
     return values,headers
 
 
+def cleanline(line):
+    newline = line.replace('`', '')  # .replace("\t", "")#.replace("\\'", "&quot ") #if not next two chars ',
+    #OLD newline = re.sub(r"(?<!,\s)(?<!\\\\\\)(?<=)\\'(?!,\s')", "&quot ", newline)  # changed to \s for any whitespacemay need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
+    newline = re.sub(r"(?<!,\s)(?<=)\\'(?!,\s|,')", "&quot ", newline)  # changed to \s for any whitespacemay need to change back to just 2 backslahes for some #get rid of single quotation makrs unless preceded by , or followed by for some reason replacing every quotation mark when //' not present ,
+
+    newline = newline.strip(" ()\"")
+    # newline = re.split(r"(?:^|,)(\"(?:[^\"]+|\"\")*\"|[^,]*)",newline) #another variation. havent added to readmode 3 above yet
+    newline = re.split(r",(?=(?:[^\']*\'[^\']*\')*[^\']*$)",
+                       newline)  # another regex variation that may work better that split on comma only if comma not inside single quotes from https://stackoverflow.com/questions/18893390/splitting-on-comma-outside-quotes
+    thing1 = [x.replace('\0', '').replace("\t", "") for x in newline]  # elimate null bytes
+    thing1 = [x.replace("&quot ", "'").strip(" '").replace("\\\\", "") for x in
+              thing1]
+    return thing1
+
 def no_TABLE_NAME_NOHEADERS_JUST_lines():
     field1=""
     field2="etc"
 
+
+def readDirtyfile(file,type="csv"):
+    line     = []
+    expected = []
+    saw      = []
+    cont     = True
+    while cont == True:
+        try:
+            if type =="csv":
+                data = pd.read_csv(file, encoding="utf8",skiprows=line)
+
+            else:
+                data = pd.read_table(file, encoding="utf8",skiprows=line,sep="\t")
+
+            cont = False
+        except Exception as e:
+            ok = str(e).replace("\n","")
+            if "Error tokenizing data" in ok:
+                nums = [n.strip(",") for n in ok.split(' ') if str.isdigit(n.strip(","))]
+                expected.append(int(nums[0]))
+                saw.append(int(nums[2]))
+                line.append(int(nums[1]) - 1)
+            else:
+                cerror = 'Unknown'
+                print(str(e))
+    print(line)
+    bpath = Path(file).parent
+    filename = Path(file).name.split(".",1)[0]
+    with open(os.path.join(bpath, f"{filename}_Errors.txt"), 'a') as outfile:
+        outfile.write(line + "\n")
+    return data
+
+
 def getridofuselesscolumns(file):
     import pandas as pd
     import numpy as np
+    import warnings
+    warnings.filterwarnings("ignore")
     pd.set_option('display.max_colwidth', -1)
-    df = pd.read_csv(file,encoding="UTF8")
+    if file.endswith(".csv"):
+        df = pd.read_csv(file,encoding="UTF8") #readdirtyfile had issues with tabs etc
+    else:
+        df = pd.read_table(file,encoding="utf8")
 
-
-    columnsdontwant = ["avatartype","birthdayprivacy","threadmode","buddylist","awaydate","returndate","totalpms","usergroupid","warn_lastwarn",
-                       "last_post","last_activity","last_visit","auto_track","temp_ban","member_login_key","ignored_users","login_anonymous",
+    columnsdontwant = ["password_last_changed","birthday_search","user_posts","user_session_time","user_lastvisit","avatartype","birthdayprivacy","threadmode","buddylist","awaydate","returndate","totalpms","usergroupid","warn_lastwarn","created_at","updated_at","created_in",
+                       "last_post","last_activity","last_visit","auto_track","temp_ban","member_login_key","ignored_users","login_anonymous","language","remember_token","role",
                        "avatardimensions","additionalgroups","daysprune","ignorelist","pmfolders","notepad","referrer","member_login_key_expire","has_blog",
-                       "timeonline", "moderationtime","gallery_perms","members_cache","members_profile_views","mood",
-                        "postnum","membergroupids","warn_last","joined","usertitle","displaygroupid",'joindate', 'lastvisit',
-                       'lastactivity', 'lastpost', 'lastpostid', 'posts',"reputation","options",
-                       "birthday_search",'referrerid', 'emailstamp', 'pmtotal', 'pmunread',
-                       'profilevisits',"active","plan","timezone","table","passworddate","styleid",
+                       "timeonline", "moderationtime","gallery_perms","members_cache","members_profile_views","mood","key","expire","user_type",
+                        "postnum","membergroupids","warn_last","joined","usertitle","displaygroupid",'joindate', 'lastvisit',"warn_level",
+                       'lastactivity', 'lastpost', 'lastpostid', 'posts',"reputation","options","lastactive","loginkey","timezone","lastlogin"
+                       "birthday_search",'referrerid', 'updated_on', "profile_customizations","uid",'passwordReset', 'points_current', 'points', 'validation','emailstamp', 'pmtotal', 'pmunread',"vmunreadcount","msg_count_total","warnings",
+                       'profilevisits',"active","plan","timezone","table","passworddate","styleid","memberstatus","table_name","longregip","longlastip",
                        'referrerid', 'languageid', 'emailstamp', 'threadedmode', 'emailnotification',"profilevisits","friendcount","token","scheme"]
     firstdrop = [x for x in df.columns if x in columnsdontwant]
     df.drop(firstdrop, axis=1, inplace=True) #drop them
@@ -594,9 +700,15 @@ def getridofuselesscolumns(file):
 
     #df replace None,
     df.replace("blank", np.nan, inplace=True)
+    df.replace("<blank>", np.nan, inplace=True)
+    df.replace("0", np.nan, inplace=True)
+    df.replace(0, np.nan, inplace=True)
+
     df.replace("Null", np.nan, inplace=True)
     df.replace("NULL", np.nan, inplace=True)
     df.replace("0000-00-00", np.nan, inplace=True)
+    df.replace("0000-00-00 00:00:00", np.nan, inplace=True)
+
 
     df = df.dropna(axis=1, thresh=int(.001 * len(df)))  # drop all columns that have less than .001 values
     droplist2 = []
@@ -622,10 +734,31 @@ def getridofuselesscolumns(file):
     df1 = df.applymap(str)
     df1.drop_duplicates(inplace=True)
 
-    df1.to_csv(file.replace(".csv","_cleaned.csv"), index=False, escapechar='\n')  # ignore newline character inside strings
+    bpath = Path(file).parent
+    newfilename = Path(file).name.rsplit(".",1)[0] + "_cleaned.csv"
+    df1.to_csv(os.path.join(bpath,newfilename), index=False, escapechar='\n')  # ignore newline character inside strings
 
     #df = df.replace({'\n': '<br>', "\r": "<br>"}, regex=True)
 
+
+def htmltabletocsv(filelocation):
+    for i, df in enumerate(pd.read_html(filelocation)):
+        bath = Path(filelocation).parent
+        fname = Path(filelocation).name.rsplit(".",1)[0]
+        df.to_csv(os.path.join(bath,f'{fname}_{i}.csv'),index=False)
+
+def usingdask(file):
+    import dask.dataframe as dd
+    bpath = Path(file).parent
+    fname = Path(file).name.rsplit(".", 1)[0]
+    df =dd.read_csv(file,dtype={10: 'object',
+       12: 'object',
+       13: 'object',
+       18: 'float64',
+       22: 'object',
+       25: 'object',
+       6: 'object'}) #change columns by name to object if get mismatched types
+    df.to_csv(os.path.join(bpath,fname+"_cleaned.csv"), single_file=True)
 
 def cleandir(dir):
     for x in os.listdir(dir):
@@ -634,6 +767,33 @@ def cleandir(dir):
             getridofuselesscolumns(file)
         except Exception as e:
             print(x,str(e))
+
+def load_dirty_json(dirty_json):
+    regex_replace = [(r"([ \{,:\[])(u)?'([^']+)'", r'\1"\3"'), (r" False([, \}\]])", r' false\1'), (r" True([, \}\]])", r' true\1')]
+    for r, s in regex_replace:
+        dirty_json = re.sub(r, s, dirty_json)
+    clean_json = json.loads(dirty_json)
+    return clean_json
+
+def mongodbEXparser(collectionName):
+    """
+    } ]);
+db.getCollection("clientes").insert([ {
+    _id: ObjectId("5a68d2f21710401a7afc5419"),
+    identificacion: "1391753217001",
+    razonSocial: "INMONIKKO S.A.",
+    password: "U2FsdGVkX1+YTq80OkQnRC9HgcUJH16fYfTmdM2bXY0=",
+    email: "",
+    __v: NumberInt("0")
+} ]);
+    """
+    tablename = "admissions"
+    lent = len(tablename) + 4
+    jbreak = re.compile(r"\(.{2," + str(lent) + "}\.insert([^]]+)\]",re.DOTALL)
+    ok = []
+    with open (filename) as f:
+        con = f.read()
+    items = re.findall(jbreak,con)
 
 def sqlconverter(filepath,format,get_encoding=False,dumpall=False):
     import pprint
@@ -676,21 +836,49 @@ def sqlconverter(filepath,format,get_encoding=False,dumpall=False):
 def directoryconvert(directory):
     import os
 
+def convertXL2csv(directory): #gets Excel file and converts each sheet to CSV and moves XL file to folder
+    import pandas as pd
+    from tqdm import tqdm
+    import os
+    for x in tqdm(os.listdir(directory)):
+        if x.endswith("xls") or x.endswith("xlsx"):
+            file = os.path.join(directory,x)
+            convertExceltoCSV(file)
+
+def convertExceltoCSV(filepath):
+    filename = Path(filepath).name.rsplit(".")[0]
+    directory = Path(filepath).parent
+
+    xfile = pd.ExcelFile(filepath)
+    topfolder=""
+    sheets = xfile.sheet_names
+    for sheet in sheets:
+        df = xfile.parse(sheet)
+        if sheet.startswith("Sheet"):
+            sheet = sheet.replace("Sheet", "")
+        if len(df) > 0:
+            df.to_csv(os.path.join(directory, f"{filename}_{sheet}.csv"), encoding='utf-8', index=False)
+    os.rename(filepath, os.path.join("E:\XL files that were converted to CSV",
+                                 filename))  # move json file to jsonbackups folder to keep things tidy
+
 
 def main():
     import argparse
     import warnings
+    warnings.filterwarnings("ignore")
     import sys
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", '-json', action='store_true', help="add this flag to convert to JSON, otherwise will convert to CSV by default")
     parser.add_argument('--filepath', '-f', help="where's the SQL")
     parser.add_argument('--directory', '-dir', help="convert folder of sql files")
+    parser.add_argument('--html', '-html', help="convert file with HTML tables to CSV")
 
     parser.add_argument('--clean', '-c', help="clean a CSV")
     parser.add_argument('--cleandir', '-cd', help="clean a directory of CSVs")
 
     parser.add_argument('--dumpall', '-d', action='store_true',help="grab and convert every table")
     parser.add_argument("--recursive","-r",action='store_true',help="Use with directory functions to do recursively")
+    parser.add_argument('--emailextractonly', '-em', help="exttact emails and stop")
 
 
 
@@ -712,6 +900,8 @@ def main():
         ENCODING = True
     else:
         ENCODING = False
+    if args.emailextractonly:
+        extractemailsfromfile(args.emailextractonly)
     if args.clean:
         getridofuselesscolumns(args.clean)
     elif args.cleandir:
@@ -738,6 +928,8 @@ def main():
                         print(f"{filepath}:Fuked up::{str(e)}")
     elif args.filepath:
         sqlconverter(args.filepath,format,get_encoding=ENCODING,dumpall = args.dumpall)
+    elif args.html:
+        htmltabletocsv(args.html)
     elif args.directory:
         if args.recursive:
             for root, dirs, files in os.walk(args.directory):
@@ -752,13 +944,42 @@ def main():
         else:
             files = os.listdir(args.directory)
             for x in files:
-                if x.endswith(".sql"):
+                if x.endswith(".sql") or x.endswith(".txt") and os.path.isfile(os.path.join(args.directory, x)):
                     filepath = os.path.join(args.directory, x)
                     try:
                         sqlconverter(filepath, format, get_encoding=ENCODING, dumpall=args.dumpall)
                     except Exception as e:
                         print (f"{filepath}:Fuked up::{str(e)}")
 
+def prettytabletoCSV(filepath):
+    with open(filepath) as f:
+        s = f.read()
+    result = [tuple(filter(None, map(str.strip, splitline))) for line in s.splitlines() for splitline in
+              [line.split("|")] if len(splitline) > 1]
+
+    with open(filepath.replace(".txt",'.csv'), 'w',newline="") as outcsv:
+        writer = csv.writer(outcsv)
+        writer.writerows(result)
+
 if __name__ == '__main__':
     main()
+
+
+"""
+escape quote tests
+
+(575781,	2,	'',	0,	'OutsitPiz',	'dbdf6d92aba8be1838c0ac48c4959622',	'2012-12-14',	'zxwldc@lumucoq.swinoujscie.pl',	0,	'',	'http://lc.upytola.powiat.pl/downloaddiablo2panzniszczeniaunhandledexpection.html',	'1894999',	'',	'',	2,	0,	'Newbies',	0,	1355520879,	0,	1355520879,	1355520991,	0,	0,	10,	5,	'-8',	2,	0,	0,	0,	45112391,	'06-10-1981',	'1981-06-10',	-1,	-1,	'188.143.234.20',	0,	1,	'',	0,	0,	2,	2,	2,	'micpA+)N\"UUM3S7b\'=PAf}!:Jg]P$R',	'',	0,	0,	0,	0,	0,	0,	'',	0,	0,	22,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	100,	1,	'',	0,	0,	0,	0,	1,	1,	'',	'',	0,	'',	'vb',	'',	0,	1,	0,	0,	0,	0,	NULL,	0,	0,	0,	'',	'',	0,	NULL)
+
+(358,	2,	'',	0,	'Safety Helmet',	'f995cdcbc38437d18368971d3847d895',	'2013-05-10',	'tokyoguyjean@yahoo.com',	0,	'',	'http://www.evilpongi.com/',	'',	'',	'',	1,	0,	'Newbies',	0,	1167532034,	0,	1368556026,	1368570984,	1261253098,	41,	10,	5,	'0',	2,	6,	0,	0,	45243479,	'05-18-1971',	'1971-05-18',	-1,	1,	'203.216.97.103',	0,	0,	'',	0,	0,	2,	18,	6,	's33cq({<@y\\B@C3uuw>-^F\\'3kZ1gh',	'',	0,	1370108,	0,	0,	0,	0,	'',	0,	250,	782,	1,	1,	0,	0,	0,	0,	0,	0,	0,	22,	7,	28,	100,	1,	'',	1333605662,	0,	0,	0,	1,	1,	'',	'',	0,	'',	'vb',	'',	0,	1,	0,	0,	0,	0,	'0',	0,	0,	0,	'',	'',	0,	NULL),
+
+(358,	2,	'',	0,	'Safety Helmet',	'f995cdcbc38437d18368971d3847d895',	'2013-05-10',	'tokyoguyjean@yahoo.com',	0,	'',	'http://www.evilpongi.com/',	'',	'',	'',	1,	0,	'Newbies',	0,	1167532034,	0,	1368556026,	1368570984,	1261253098,	41,	10,	5,	'0',	2,	6,	0,	0,	45243479,	'05-18-1971',	'1971-05-18',	-1,	1,	'203.216.97.103',	0,	0,	'',	0,	0,	2,	18,	6,	's33cq({<@y\\B@C3uuw>-^F\\\'3kZ1gh',	'',	0,	1370108,	0,	0,	0,	0,	'',	0,	250,	782,	1,	1,	0,	0,	0,	0,	0,	0,	0,	22,	7,	28,	100,	1,	'',	1333605662,	0,	0,	0,	1,	1,	'',	'',	0,	'',	'vb',	'',	0,	1,	0,	0,	0,	0,	'0',	0,	0,	0,	'',	'',	0,	NULL),
+
+
+(575783,	8,	'',	0,	'bapittylitlea1412',	'dbdf6d92aba8be1838c0ac48c4959622',	'2012-12-14',	'bapittylitlea@cmail.org',	0,	'',	'',	'',	'',	'',	2,	0,	'Newbie',	0,	1355520931,	0,	1355520931,	1355520931,	0,	0,	10,	5,	'10',	1,	0,	0,	0,	45112391,	'01-13-1978',	'1978-01-13',	-1,	-1,	'116.112.66.102',	0,	1,	'',	0,	0,	2,	0,	0,	'6DCWB_EsfFCtavh:.IYG7u1v1<D,H+',	'',	0,	0,	0,	0,	0,	0,	'',	0,	0,	13,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	100,	1,	'',	0,	0,	0,	0,	1,	1,	'',	'',	0,	'',	'vb',	'',	0,	1,	0,	0,	0,	0,	NULL,	0,	0,	0,	'',	'',	0,	NULL)
+
+(20,	2,	'',	0,	'The Man, The Legend',	'dbdf6d92aba8be1838c0ac48c4959622',	'2005-12-23',	'something@something.com',	0,	'',	'',	'',	'',	'',	1,	0,	'Newbies',	0,	1135382192,	0,	1137970058,	1138122938,	1138122930,	16,	10,	5,	'0',	2,	56,	0,	0,	45108311,	'',	'0000-00-00',	-1,	-1,	'84.67.3.192',	0,	1,	'',	0,	0,	0,	17,	17,	'9we',	'',	0,	0,	0,	0,	0,	0,	'',	0,	250,	513,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	100,	1,	'',	1326351663,	0,	0,	0,	1,	1,	'',	'',	0,	'',	'vb',	'',	0,	1,	0,	0,	0,	0,	'0',	0,	0,	0,	'',	'',	0,	NULL),
+
+(807672,	2,	'',	0,	'Guerry',	'2010-07-15',	'Guerry.4peace@hotmail.it',	0,	'',	'',	'',	'',	'',	1,	'Junior Member',	0,	1279181139,	0,	1280396303,	1280396740,	0,	0,	10,	5,	'-8',	1,	0,	0,	246438982,	NULL,	939524090,	'09-07-1981',	'1981-09-07',	-1,	-1,	'78.134.97.26',	0,	0,	'',	0,	0,	0,	0,	0,	0,	0,	'',	'',	NULL,	0,	0,	0,	0,	0,	0,	'',	0,	0,	0,	0,	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'N',	'',	'',	'',	'',	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	'',	0,	1,	0,	0,	0,	'',	0,	'',	'vb',	'',	0,	0,	0,	0,	'0',	1,	0,	1,	1,	0,	1,	0,	0,	0,	'',	NULL,	1,	0,	0,	0,	0,	NULL,	'1acfb46816751b3ccd415a7c3bde32f6 y_5&Uz/^a+x9w!S$%cY7ynBXJ.Q@\'\\',	'legacy',	'y_5&Uz/^a+x9w!S$%cY7ynBXJ.Q@\'\\',	0),
+"""
+
 #sqlconverter(r"D:\Breached Databases\newestones\verifiedish\api_gryamatics_com.sql","csv",get_encoding=False) #And pick "users" table is GOOD TEST
