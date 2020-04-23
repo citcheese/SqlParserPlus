@@ -1,0 +1,72 @@
+import csv
+import re
+import sys
+
+def fling(filename):
+    valregex = re.compile(r" values ?\(",
+                          re.IGNORECASE)#for redmode =2  # re.compile(r"\) values ",re.IGNORECASE) q mark matches space 0 or 100 times
+    with open(filename, "r", encoding="utf8") as f, open(filename + "cleaned.csv", "a", encoding="utf8",newline="") as f2, open(
+        filename + "errors.txt", "w", encoding="utf8") as f3:
+        for line in tqdm(f):
+            try:
+                values =[]
+                data = re.split(valregex, line, 1)[1].strip("\n\r;")  # max split of 1
+                thing1 = cleanline(data, overridequotechar="'")
+                for y in thing1:
+                    values.append(y[:4])
+                writer = csv.writer(f2)
+
+                for x in values:
+                    writer.writerow([z.strip('\t "\'') for z in x])  # added \t on 4/21
+            except:
+                f3.write(line + "\n")
+
+def cleanline(values,readmode=2,overridequotechar=""):
+    values = values.replace(", ",",").replace("\t","")
+    
+    QUOTECHAR = "'"
+
+    if overridequotechar:
+        QUOTECHAR = overridequotechar
+    rows = []
+    latest_row = []
+
+    reader = csv.reader([values], delimiter=',',
+                        doublequote=True, #when they are double quotes eg '' in middle of value. may need to switch to False for other tables
+                        escapechar='\\',
+                        quotechar=QUOTECHAR,
+                        strict=False
+                        )
+    if readmode ==3: #get raw output of the reader, as otherwise if there is ")" at end os value, belwo will thign it's new record
+        rows = list(reader)
+    else:
+        for reader_row in reader:
+            for column in reader_row:
+                if len(column) == 0 or column == 'NULL':
+                    latest_row.append(chr(0))
+                    continue
+                if column[0] == "(":
+                    new_row = False
+                    if len(latest_row) > 0:
+                        if latest_row[-1][-1] == ")":
+                            latest_row[-1] = latest_row[-1][:-1]
+                            new_row = True
+                    if new_row:
+                        latest_row = ['' if field == '\x00' else field for field in latest_row]
+
+                        rows.append(latest_row)
+                        latest_row = []
+                    if len(latest_row) == 0:
+                        column = column[1:]
+                latest_row.append(column)
+            if latest_row[-1][-2:] == ");":
+                latest_row[-1] = latest_row[-1][:-2]
+                latest_row = ['' if field == '\x00' else field for field in latest_row]
+
+                rows.append(latest_row)
+
+    return rows
+    
+if __name__ == '__main__':
+    fling(sys.argv[1]
+   
