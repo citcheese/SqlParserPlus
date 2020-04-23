@@ -1,15 +1,18 @@
 import csv
 import re
 import sys
+from tqdm import tqdm
+
 
 def fling(filename):
     valregex = re.compile(r" values ?\(",
-                          re.IGNORECASE)#for redmode =2  # re.compile(r"\) values ",re.IGNORECASE) q mark matches space 0 or 100 times
-    with open(filename, "r", encoding="utf8") as f, open(filename + "cleaned.csv", "a", encoding="utf8",newline="") as f2, open(
-        filename + "errors.txt", "w", encoding="utf8") as f3:
+                          re.IGNORECASE)  # for redmode =2  # re.compile(r"\) values ",re.IGNORECASE) q mark matches space 0 or 100 times
+    with open(filename, "r", encoding="utf8") as f, open(filename + "cleaned.csv", "a", encoding="utf8",
+                                                         newline="") as f2, open(
+            filename + "errors.txt", "w", encoding="utf8") as f3:
         for line in tqdm(f):
             try:
-                values =[]
+                values = []
                 data = re.split(valregex, line, 1)[1].strip("\n\r;")  # max split of 1
                 thing1 = cleanline(data, overridequotechar="'")
                 for y in thing1:
@@ -21,9 +24,10 @@ def fling(filename):
             except:
                 f3.write(line + "\n")
 
-def cleanline(values,readmode=2,overridequotechar=""):
-    values = values.replace(", ",",").replace("\t","")
-    
+
+def cleanline(values, readmode=2, overridequotechar=""):
+    values = values.replace(", ", ",").replace("\t", "")
+
     QUOTECHAR = "'"
 
     if overridequotechar:
@@ -32,12 +36,13 @@ def cleanline(values,readmode=2,overridequotechar=""):
     latest_row = []
 
     reader = csv.reader([values], delimiter=',',
-                        doublequote=True, #when they are double quotes eg '' in middle of value. may need to switch to False for other tables
+                        doublequote=True,
+                        # when they are double quotes eg '' in middle of value. may need to switch to False for other tables
                         escapechar='\\',
                         quotechar=QUOTECHAR,
                         strict=False
                         )
-    if readmode ==3: #get raw output of the reader, as otherwise if there is ")" at end os value, belwo will thign it's new record
+    if readmode == 3:  # get raw output of the reader, as otherwise if there is ")" at end os value, belwo will thign it's new record
         rows = list(reader)
     else:
         for reader_row in reader:
@@ -66,7 +71,8 @@ def cleanline(values,readmode=2,overridequotechar=""):
                 rows.append(latest_row)
 
     return rows
-    
+
+
 if __name__ == '__main__':
-    fling(sys.argv[1]
-   
+    fling(sys.argv[1])
+
