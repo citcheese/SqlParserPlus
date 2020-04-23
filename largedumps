@@ -16,7 +16,7 @@ def fling(filename):
                 data = re.split(valregex, line, 1)[1].strip("\n\r;")  # max split of 1
                 thing1 = cleanline(data, overridequotechar="'")
                 for y in thing1:
-                    values.append(y[:4])
+                    values.append(y)
                 writer = csv.writer(f2)
 
                 for x in values:
