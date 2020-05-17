@@ -6,9 +6,10 @@ For each conversion options, can convert single file, folder of files, or do rec
 SQL Dump Parsing
 -------------
 Will take pretty much any SQL dump you can throw at it and convert the dump to a CSV. Will work on dumps regardless if entries are line seperated, if there are no proper tables, or on files without field values, etc.
-If it is proper SQL dump with tables, the parser will first run through the file and dientify any tables present. It will then produce a simple GUI from which you can select the tables you want to grab with the most interesting ones listed at the top.
+If it is proper SQL dump with tables, the parser will first run through the file and dientify any tables present. It will then produce a simple GUI from which you can select the tables you want to grab with the most interesting ones listed at the top:
+&emsp;<br><img src="./window.JPG" width="500" height="500" />
 
-You also have the option to automatically grab all tables in a SQL file by adding the "dumpall" flag. If there is only one table found in the dump, script will just automatically begin dumping that table. 
+<p>You also have the option to automatically grab all tables in a SQL file by adding the "dumpall" flag. If there is only one table found in the dump, script will just automatically begin dumping that table. 
 Tables that have fields like "email","username","ipaddress" etc. will be seperated into folder called "good ones", in case you plan on dumping thousands of tables at a time.
 
 Other Leaked DB File Conversions
