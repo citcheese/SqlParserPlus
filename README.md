@@ -36,3 +36,9 @@ Post Processing
 Added ability to "clean" the resulting CSV files to get rid of useless fields as well as to normalize certain fields. For instance if it identies date in 5 digit format it will convert to proper date. Or if sees IP address as integer or hex, will convert to IP address in format XXX.XX.XX.X.
 Added bunch of names and conditions for columns that are usually useless, but feel free to change the conditions/columns as you like. Or don't use it.
 
+Installation and Requirements
+-------------
+* Clone or download to machine
+* install requirements from file
+
+<b>Note:</b> Tested ONLY on Python 3.7.3 and on Windows 10.
