@@ -5,7 +5,7 @@ For each conversion options, can convert single file, folder of files, or do rec
 
 SQL Dump Parsing
 -------------
-Will take pretty much any SQL dump you can throw at it and convert the dump to a CSV. Will work on dumps regardless if entries are line seperated, if there are no proper tables, or on files without field values, etc.
+Will take pretty much any SQL dump you can throw at it and convert the dump to a CSV. Will work on dumps regardless if entries are line separated, if there are no proper tables, or on files without field values, etc.
 If it is proper SQL dump with tables, the parser will first run through the file and identify any tables present. It will then produce a simple GUI from which you can select the tables you want to grab with the most "promising" ones listed at the top:
 <pre><code> <br><img src="./window.JPG" width="300" height="300" /></code></pre>
 
