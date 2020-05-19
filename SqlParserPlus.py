@@ -937,10 +937,8 @@ def main():
     #sys.exit()
 
 
-    if args.json:
-        format = "json"
-    else:
-        format = "csv"
+
+    format = "csv"
     if args.encoding:
         ENCODING = True
     else:
