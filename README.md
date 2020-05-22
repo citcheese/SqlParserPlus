@@ -42,3 +42,33 @@ Installation and Requirements
 * install requirements from file
 
 <b>Note:</b> Tested ONLY on Python 3.7.3 and on Windows 10.
+
+Usage
+-------------
+```
+usage: sqlparserplus.py [-h] [--sqlextract] [--emailextractonly] [--html]
+                        [--xltocsv] [--pretty] [--dumpall] [--encoding]
+                        [--clean] [--cleandir] [--recursive]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --recursive, -r       Use to convert/clean files within subfolders
+
+What Do you Want to convert?:
+  --sqlextract , -s     full extraction of SQL file or folder of files
+  --emailextractonly , -em
+                        only get emails from file
+  --html , -html        convert file with HTML tables to CSV
+  --xltocsv , -xl       converts each sheet of Excel file to CSV file - throw
+                        in file or folder
+  --pretty , -pt        converts 'pretty table' dump to CSV
+
+SQL Dump Options:
+  --dumpall, -d         grab and convert every table
+  --encoding, -e        add flag if want to specify encoding. Best not to at
+                        first.
+
+Post Processing Options:
+  --clean , -c          clean a CSV
+  --cleandir , -cd      clean a directory of CSVs
+  ```
