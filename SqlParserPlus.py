@@ -846,12 +846,7 @@ def convertExceltoCSV(filepath):
             sheet = sheet.replace("Sheet", "")
         if len(df) > 0:
             df.to_csv(os.path.join(directory, f"{filename}_{sheet}.csv"), encoding='utf-8', index=False)
-    bpathparts = Path(filepath).parts[5:]
-    bpathparts = [x for x in bpathparts]
-    fullpath = os.path.join("E:","XL files that were converted to CSV",*bpathparts)
-    if not os.path.exists(Path(fullpath).parent):
-        os.makedirs(Path(fullpath).parent)
-    os.rename(filepath, fullpath)  # move json file to jsonbackups folder to keep things tidy
+    
 
 def prettytabletoCSV(filepath):
     import csv
