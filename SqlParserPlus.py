@@ -280,7 +280,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                     outfile.write(x + "\n")
 
     if dumpall:
-        mintables = 10
+        mintables = 100000
     else:
         mintables =1
     if not othertables:
@@ -846,7 +846,7 @@ def convertExceltoCSV(filepath):
             sheet = sheet.replace("Sheet", "")
         if len(df) > 0:
             df.to_csv(os.path.join(directory, f"{filename}_{sheet}.csv"), encoding='utf-8', index=False)
-    
+
 
 def prettytabletoCSV(filepath):
     import csv
@@ -889,9 +889,9 @@ def main():
                                                            
 
                            {Fore.RESET}by:{Fore.CYAN} Matteo Tomasini (citcheese) {Fore.RESET}
-                                    Version: {Fore.CYAN}0.35{Fore.RESET}                                      
+                                    Version: {Fore.CYAN}0.5{Fore.RESET}                                      
 
-            {color.BOLD}SQLParser+ - Convert SQL dumps and whole lot more to CSVs!{Style.RESET_ALL}
+            {color.BOLD}        SQLParser+ - Convert SQL dumps and other leak dumps to CSVs!{Style.RESET_ALL}
 
     {Fore.CYAN}_____________________________________________________________________________{Fore.RESET}
     """
@@ -901,9 +901,9 @@ def main():
     #parser.add_argument("--json", '-json', action='store_true', help="add this flag to convert to JSON, otherwise will convert to CSV by default")
     group3 = parser.add_argument_group(f'{Fore.CYAN}What Do you Want to convert?{Fore.RESET}')
 
-    group3.add_argument('--sqlextract', '-s', help="full extraction of SQL file or folder of files",metavar="")
-    group3.add_argument('--emailextractonly', '-em', help="only get emails from file",metavar="")
-    group3.add_argument('--html', '-html', help="convert file with HTML tables to CSV",metavar="")
+    group3.add_argument('--sqlextract', '-s', help="convert SQL file or folder of files to CSV",metavar="")
+    group3.add_argument('--emailsonly', '-em', help="only extract emails from file",metavar="")
+    group3.add_argument('--html', '-html', help="convert file with HTML tables to CSVs",metavar="")
     group3.add_argument('--xltocsv', '-xl', help="converts each sheet of Excel file to CSV file - throw in file or folder",metavar="")
     group3.add_argument('--pretty', '-pt', help="converts 'pretty table' dump to CSV",metavar="")
 
@@ -939,8 +939,8 @@ def main():
     else:
         ENCODING = False
 
-    if args.emailextractonly:
-        extractemailsfromfile(args.emailextractonly)
+    if args.emailsonly:
+        extractemailsfromfile(args.emailsonly)
     if args.clean:
         getridofuselesscolumns(args.clean)
     elif args.pretty:
