@@ -14,10 +14,12 @@ pd.set_option('display.max_columns', None)
 
 maxInt = sys.maxsize
 
+#for the "clean" function, add column headers you don't want
+columnsdontwant = ['awards', 'warningpoints']
+
 while True:
     # decrease the maxInt value by factor 10
     # as long as the OverflowError occurs.
-
     try:
         csv.field_size_limit(maxInt)
         break
@@ -59,7 +61,6 @@ def tableSelectGUI(tablenames,filename):
     upfirst = [x for x in tablenames if any(y in x.lower() for y in iwant)] #put tables with info i like up first
     tot = upfirst + tablenames
     choices = sorted(set(tot), key=tot.index) #get rid of duplicates while preserving order
-    #choices = tablenames
     choice = multchoicebox(msg, title, choices,preselect=None)
     return choice
 
@@ -90,13 +91,8 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                             " `\n").strip('"')
                         noncreatetableTables.append(tablename)
                 except:
-                    #print(line)
                     pass
-                    #sys.exit()
                 if line.lower().startswith('create table'):
-                    #print (line)
-                    tline = line
-                    # newline = line
                     line = line.replace("IF NOT EXISTS ","").replace("&quot;","`") #get rid of those term so below regex works
 
                     table_name = re.findall("create table [`']([\w_]+)[`']", line,flags = re.IGNORECASE)
@@ -128,8 +124,6 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
             items = []
             values = []
             for line in tqdm(f,desc=f"Parsing {Fore.LIGHTBLUE_EX}{target_table}{Fore.RESET} table"):
-                #if read_mode !=0:
-                 #   print(str(read_mode))
                 try:
                     line = line.strip()
 
@@ -174,18 +168,13 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                         elif line.lower().startswith(")"): #added this to deal with desking, w/o worked fien for other ones
                             read_mode=0
                             continue
-                        #print (line)
                         #colheader = re.findall('`([\w_]+)`',line) #old version, only grabs header if in quotes
                         colheader = re.findall('^([^ \t]+).*',line)
                         for col in colheader:
                             headers.append(col.strip("'").strip("`"))
-                    # Filling up the headers
 
-                            #if line.endswith(';'):
-                             #   break
                     elif read_mode ==2:
                         if line.lower().startswith('insert') and tableregexp.search(line.split("(",1)[0]):#target_table in line.split("(", 1)[0][:50] and target_table + "_" not in line.split("(",1)[0]:
-                            #print("AL")
                             data =re.split(valregex,line,1)[1].strip("\n\r;") #max split of 1
 
                             thing1 = cleanline(data,overridequotechar="'")
@@ -193,7 +182,6 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                                 values.append(y)
 
                     elif read_mode ==3:
-                        #print("yes")
                         if line.lower().startswith('insert') and tableregexp.search(line.split("(",1)[0]) and line.endswith("VALUES"):
                             pass
                         else:
@@ -220,7 +208,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                                     values.append(x)
                                 # need to
 
-                                #These lines may not be needed anymore. messed up some other files. we'll see. nope still need it
+                                #These lines may not be needed anymore. messed up some other files. we'll see...nope still need it
                                 if line.endswith(";") and not line.startswith(
                                         "INSERT INTO"):  # added this if/else clause to deal with desking issue where script was getting values of all table sfor some reason, when added it above  I lose last entry in table, so now add it here so add data to list but after switch read-mode. Added extra line startswith cond as realized that when have insert into statements all the way down, those end with semi-colon
                                     read_mode = 0
@@ -232,11 +220,8 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                                 pass
                             except Exception as e:
                                 errors.append(line)
-                                #print(F"{line} fucked up because {str(e)}")
-                                #print(read_mode)
-                                #break
+
                 except Exception as e:
-                    #print(line[:100],str(e))
                     errors.append(line)
 
             if not headers:
@@ -260,20 +245,13 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                             headers)
                         for x in values:
                             x.append(target_table)
-                            writer.writerow([z.strip('\t "\'') for z in x])#added \t on 4/21
+                            writer.writerow([z.strip('\t "\'') for z in x])
                     print(F"    Generating CSV for {target_table}")
                 else:
                     print(F"    Found no values in {target_table}")
 
 
-            else:
-                for x in values:
-                    x = [y.strip("'\t") for y in x]
-                    item = dict(zip(headers,x))
-                    item['table'] = target_table
-                    items.append(item)
 
-                return items
         if errors:
             with open(os.path.join(bpath, f"{filename}_ErroredLines.txt"), 'a') as outfile:
                 for x in errors:
@@ -306,15 +284,13 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
     else:
         tablechoices = tables
     if len(tables)==0:
-        print("No proper tables found! So going to try running the NoTableFunction and see what happens")
+        print("No create table statements found! Going to try running the 'NoCreateTable' function and see what happens")
         everything = NoCreateTable(filename,ENCODING,norepeatinginsert=True)
         if not everything:
-            print("  No luck. Trying something else...")
+            print("  Damn it, no luck. Trying something else...")
             everything = NoCreateTable(filename, ENCODING,norepeatinginsert=False)
             if not everything:
-                print("  No luck oh well. Should prob open the file and see what's going on")
-
-
+                print("  Still nothing. Should probably open the file and see what's going on")
     else:
         everything =[]
         if tablechoices:
@@ -323,13 +299,8 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                 try:
                     count +=1
                     print(f"{count}/{len(tablechoices)}\n")
-                    allitems = read_dump(filename,x)
-                    if FORMAT == "json":
-                        if len(allitems) ==1:
-                            print (allitems)
-                            break
-                        else:
-                            everything.extend(allitems)
+                    read_dump(filename,x)
+
                 except Exception as e:
                     print(f"Error with {x} because of {str(e)}")
         else:
@@ -420,7 +391,6 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
                                 tablenames.append(tablename)
                                 # if f"{tablename}:{header}" not in tableheader:
                                 tableheader.append({tablename: header})
-                            #tablename["values"].append(getvalues(line,tablename)[0])
                     else:
 
                         try:
@@ -428,7 +398,6 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
                             for x in value:#added these 2 lines with new clean line func
                                 x = x.append(tablename)
                                 allvalues.append(x)
-                            #allvalues.append(value)
                         except:
                             print(line)
                             with open(os.path.join(bpath, f"{filename}_Errors.txt"), 'a') as outfile:
@@ -446,8 +415,6 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
     if not isListEmpty(allvalues):
         print("   Whoa looks like was able to grab some data!")
         flat_list = [item for sublist in allvalues for item in sublist] #flatten list
-
-        #filename = dump_filename.rsplit("\\", 1)[1].rsplit(".", 1)[0]
 
         if tableheader:
             for x in tableheader: #create seperate csvs for each table
@@ -479,7 +446,6 @@ def NoCreateTable(dump_filename,ENCODING,norepeatinginsert):
 def getvalues(line,target_table,getheaders=False,norepeatinginsert=False):
     values=[]
     headers=""
-    #headers=[]
     tableregexp = re.compile(f"[`'\s]({target_table})[`'\s(]")
 
     if getheaders:
@@ -508,13 +474,11 @@ def getvalues(line,target_table,getheaders=False,norepeatinginsert=False):
         data = line
         #if '),(' in data:
     elif line.count(",") > 3 and line.strip(" \t").startswith("VALUES"):
-        print("yes")
+        #print("yes")
         data = "("+line.split("VALUES(",1)[1]
     if data.strip("\r\n"):
         if regexp.search(data):
             data = ["("+(x)+")" for x in re.split(regexp,data)[1:]]
-
-        #data = ["("+(x)+")" for x in data.split('),(')[1:]]
 
         else:
             data = [data]
@@ -544,13 +508,12 @@ def cleanline(values, readmode=2, overridequotechar=""):
     latest_row = []
 
     reader = csv.reader([values], delimiter=',',
-                        doublequote=True,
-                        # when they are double quotes eg '' in middle of value. may need to switch to False for other tables
+                        doublequote=True,# when they are double quotes eg '' in middle of value. may need to switch to False for other tables
                         escapechar='\\',
                         quotechar=QUOTECHAR,
                         strict=False
                         )
-    if readmode == 3:  # get raw output of the reader, as otherwise if there is ")" at end os value, belwo will thign it's new record
+    if readmode == 3:  # get raw output of the reader, as otherwise if there is ")" at end os value
         rows = list(reader)
     else:
         for reader_row in reader:
@@ -608,67 +571,15 @@ def getridofuselesscolumns(file):
             df = pd.read_csv(file,encoding=encoding,dtype=object,index_col=False)
     else:
         df = pd.read_table(file,encoding="utf8",dtype=object)
-    df.columns = [x.replace("user_","").replace("member_","").replace("customer_","").replace("customers_","") for x in df.columns]
-    columnsdontwant = ['awards','warningpoints','unreadpms',"members_seo_name","members_l_display_name","views","timeformat","dateformat","style","ppp","tpp",'is_hidden','photo_approved', 'date_photo', 'submitted_by',
-       'diet', 'lifestyle', 'purpose', 'wedding_plan', 'family_status',"usergroup","usernotes","newpoints","newpoints_items","cur_proj","cur_proj_img","live_link",
-       'visa_type', 'relocate', 'birth_time_detail', 'profile_reviewed',"awayreason","parentemail","passchg","permissions","friendreqcount","assetposthash","post_thanks_amount","post_thanks_thanked_posts","post_thanks_thanked_times","importuserid",
-       'manglik', 'country_born', 'country_grew', 'screenname_reviewed','register_date',"dateregistered","id_group","lastlogin","instantmessages","im_ignore_list","timeoffset",
-       'about_reviewed', 'date_added', 'date_due','photo_rights', 'marital_status',"referrals","logintype","dateregistered"
-       'children', 'age', 'education', 'occupation', 'nationality', 'passport','awards,',"theme","offset","threads","hiddenposts","thanks","thanked","pvotes","nvotes","shouts","wunsch","gewunscht","errormsg","home","dlfilter","highlight_hoster","api_pin",
-       'income', 'drinking', 'smoking', 'weight', 'height', 'built',"lastseen","ignored","session_time","lang","login_key_expire",
-       'complexion', 'hair_color', 'eye_color', 'culture','religion',"cast","country_id","state_id","city_id",'appVersionCode','createtime','timestamp','gender','sessionkey','regdate','signup_date',"open_auth",'secques','allow_admin_mails','view_img', 'view_avs', 'view_pop','msg_count_new', 'msg_count_reset',
-       'msg_show_notification', 'misc', 'dst_in_use', 'view_prefs','login_count','posts_count',"lastmark","lastpost_time","lastpage","last_confirm_key","last_search","last_warning","inactive_time","colour","new_privmsg","unread_privmsg","last_privmsg","full_folder","avatar_width","avatar_height",
-       'coppa_user', 'mod_posts', 'sub_end', 'mgroup_others', 'org_perm_id','user_regdate','user_vipdate',"login_key",
-       'subs_pkg_chosen', 'has_gallery', 'members_editor_choice',"reputationlevelid","regtime",
-       'members_auto_dst','failed_login_count','fb_lastsync', 'members_day_posts', 'conv_password',
-       'invites_remaining', 'invite_offset','member_banned', 'member_uploader',"loginattempts","membership",
-       'members_bitoptions','members_created_remote','user_stat','user_last_login_site','last_login',"displaygroup",
-       'user_login_times', 'user_is_bind_email', 'user_is_bind_phone','startofweek','autosubscribe',
-       'user_is_set_question', 'user_face_url','user_isload',"maxposts",
-       'table','user_pwd_strong', 'user_sex',"Event Name","Order ID","Date","Gross Revenue (USD)","Registration Revenue (USD)","Merchandise Revenue (USD)","Eventbrite Fees (USD)","Eventbrite Payment Processing (USD)","Tickets","Type","Status","Distribution Partner",
-       'user_level', 'user_vip_deadline','user_idcard','user_write_idcard_ip',
-       'user_write_idcard_locate', 'user_write_idcard_time',
-       'user_last_login_time',"Order #","Order Date","Quantity","Ticket Type","Order Type","Total Paid","Eventbrite Fees","Eventbrite Payment Processing","Attendee Status",
-       'user_lock_begintime', 'user_lock_reason', 'user_lock_days',
-       'members_disable_pm','oauth_token', 'oauth_secret', 'oauth_uid', 'email_confirm',
-       'auth_token', 'passed_compliance_on_try', 'failed_country_city',"last_updated",
-       'password_reset_token', 'fee',"group_id","user_avatar_width",'createdon', 'lastloggedin', 'status', 'activation', 'sessionid',
-       'time_offset', 'hide_email',"title","member_group_id","warn_level","warn_lastwarn","language","joined","last_post","restrict_post","user_registered","ipoints","activity","lastlogin","lastseen","numconversations","numunreadmessages","threadnum","nummessages","user_unread_privmsg","user_last_privmsg","reset_password_token","authentication_token","password_last_changed","birthday_search","user_posts","user_session_time","user_lastvisit","avatartype","birthdayprivacy","threadmode","buddylist","awaydate","returndate","totalpms","usergroupid","warn_lastwarn","created_at","updated_at","created_in",
-                       "last_post","last_activity","last_visit","auto_track","temp_ban","member_login_key","ignored_users","login_anonymous","language","remember_token","role",
-                       "avatardimensions","additionalgroups","daysprune","ignorelist","pmfolders","notepad","referrer","member_login_key_expire","has_blog",
-                       "timeonline", "moderationtime","gallery_perms","members_cache","members_profile_views","mood","key","expire","user_type","timezoneoffset",
-                        "postnum","membergroupids","warn_last","joined","usertitle","displaygroupid",'joindate', 'lastvisit',"warn_level",
-                       'lastactivity', 'lastpost', 'lastpostid', 'posts',"reputation","options","lastactive","loginkey","timezone","lastlogin"
-                       "birthday_search",'referrerid', 'updated_on', "profile_customizations",'passwordReset', 'points_current', 'points', 'validation','emailstamp', 'pmtotal', 'pmunread',"vmunreadcount","msg_count_total","warnings",
-                       'profilevisits',"active","plan","timezone","table","passworddate","styleid","memberstatus","table_name","longregip","longlastip",
-                       'referrerid', 'languageid', 'emailstamp', 'threadedmode', 'emailnotification',"profilevisits","friendcount","token","scheme"]
     firstdrop = [x for x in df.columns if x in columnsdontwant]
     df.drop(firstdrop, axis=1, inplace=True) #drop them
     secdrop = [x for x in df.columns if "dbtech_" in x]
     df.drop(secdrop, axis=1, inplace=True) #drop them
-
-    if "member_id" in df.columns:
-        df.rename(columns={"member_id":"userid"},inplace=True)
-
-    if "screen_name" in df.columns:
-        df.rename(columns={"screen_name":"username"},inplace=True)
-    if "dob" in df.columns:
-        df.rename(columns={"dob":"birthdate"},inplace=True)
-
-    if "cell" in df.columns:
-        df.rename(columns={"cell":"mobile"},inplace=True)
-
-    if "user_uin" in df.columns:
-        df.rename(columns={"user_uin":"userid"},inplace=True)
-
-
     df = df.applymap(lambda x: x.strip().strip("'") if isinstance(x, str) else x)
 
-    #df replace None,
     df.replace("blank", np.nan, inplace=True)
     df.replace("<blank>", np.nan, inplace=True)
     df.replace("0", np.nan, inplace=True)
-    #df.replace(0, np.nan, inplace=True)
     df.replace("N/A", np.nan, inplace=True)
     df.replace("Null", np.nan, inplace=True)
     df.replace("None", np.nan, inplace=True)
@@ -676,15 +587,6 @@ def getridofuselesscolumns(file):
     df.replace("NULL", np.nan, inplace=True)
     df.replace("0000-00-00", np.nan, inplace=True)
     df.replace("0000-00-00 00:00:00", np.nan, inplace=True)
-    #to remove .0 df['uid'] = df['uid'].astype(str).replace('\.0', '', regex=True)
-    if "user_login" in df.columns and "username" not in df.columns:
-        df.rename(columns={"user_login": "username"}, inplace=True)
-    if "member_id" in df.columns:
-        df.rename(columns={"member_id": "userid"}, inplace=True)
-    if "members_l_username" in df.columns:
-        df.rename(columns={"members_pass_salt": "salt"}, inplace=True)
-    if "members_l_username" in df.columns:
-        df.rename(columns={"members_pass_salt": "salt"}, inplace=True)
 
     df.replace(np.nan, '', regex=True, inplace=True) #replace nan with ""
     bdaycols = ["bday_day", "bday_month", "bday_year"]
@@ -715,11 +617,7 @@ def getridofuselesscolumns(file):
     df1 = df.applymap(str)
     df1.replace("0.0", np.nan, inplace=True)
     df1.drop_duplicates(inplace=True)
-    df1 = mergecoltodic2(df1,[])
     df1 = df1.applymap(str)
-    if "otherfields" in df1.columns:
-        df1["otherfields"] = df1["otherfields"].str.replace("{}", "")
-
 
     bpath = Path(file).parent
     newfilename = Path(file).name.rsplit(".",1)[0] + "_cleaned.csv"
@@ -728,29 +626,6 @@ def getridofuselesscolumns(file):
     if not os.path.exists(os.path.join(bpath,"originals")):
         os.makedirs(os.path.join(bpath,"originals"))
     os.rename(file, os.path.join(bpath,"originals",Path(file).name))
-    #df = df.replace({'\n': '<br>', "\r": "<br>"}, regex=True)
-
-
-
-
-def mergecoltodic2(df,col_nameslist=[]):
-    import numpy as np
-    import pandas as pd
-    df.replace(np.nan, '', regex=True, inplace=True) #replace nan with ""
-    df.columns = map(str.lower, df.columns)
-    cols = ['vk_uid',"vk_id","wxaccount",'qqaccount','icq', 'aim',"fb_uid","twitter_user","twitter_id","aol_im","yahoo_im","msn_im",
-       'yahoo','wxnickname', 'msn', "yim","msnm",'skype','fbuserid','fb_user_id',"myspace","youtube","facebookid","jabber","yim",
-       'fbname',"twitter","gravatar","fb_uid","twitter_id","facebook_id","fb_user_id","fbid","steamid","steam_id","facebook","user_qq","qq"]
-    cols = [x.lower() for x in cols]
-
-    cols = col_nameslist + cols
-    cols = list(set([x for x in cols if x in df.columns.values]))
-    if cols:
-        df['otherfields'] = df[cols].apply(pd.Series.to_dict, axis=1)
-        df['otherfields']= df["otherfields"].apply(lambda x: {k: v for k, v in x.items() if v != ""})
-        df.drop(cols,axis=1,inplace=True)
-        #df[""]
-    return df
 
 
 def orderedunique(items):
@@ -805,7 +680,6 @@ def cleandir(dir):
 
 
 def convertXL2csv(directory): #gets Excel file and converts each sheet to CSV and moves XL file to folder
-    import pandas as pd
     from tqdm import tqdm
     import os
     errors =[]
@@ -821,17 +695,13 @@ def convertXL2csv(directory): #gets Excel file and converts each sheet to CSV an
     return errors
 
 def sqlconverter(filepath,format,get_encoding=False,dumpall=False):
-    import pprint
     from pathlib import Path
-    pp = pprint.PrettyPrinter(indent=4)
     if get_encoding:
         ENCODING = predict_encoding(filepath)
         print (F"Identified encoding of file as {ENCODING}")
     else:
         ENCODING = "utf8"
-    filename =Path(filepath).name.rsplit(".",1)[0]
-    alljson = SQLtoJson(filepath,ENCODING,FORMAT=format,dumpall=dumpall)
-    p = Path(filepath)
+    SQLtoJson(filepath,ENCODING,FORMAT=format,dumpall=dumpall)
 
 def convertExceltoCSV(filepath):
     filename = Path(filepath).name.rsplit(".")[0]
@@ -898,7 +768,6 @@ def main():
     print(description + "\n")
 
     parser = argparse.ArgumentParser()
-    #parser.add_argument("--json", '-json', action='store_true', help="add this flag to convert to JSON, otherwise will convert to CSV by default")
     group3 = parser.add_argument_group(f'{Fore.CYAN}What Do you Want to convert?{Fore.RESET}')
 
     group3.add_argument('--sqlextract', '-s', help="convert SQL file or folder of files to CSV",metavar="")
@@ -911,7 +780,7 @@ def main():
     group2 = parser.add_argument_group(f'{Fore.CYAN}SQL Dump Options{Fore.RESET}')
 
     group2.add_argument('--dumpall', '-d', action='store_true', help="grab and convert every table")
-    group2.add_argument("--encoding", '-e', action='store_true',help="add flag if want to specify encoding. Best not to at first.")
+    group2.add_argument("--encoding", '-e', action='store_true',help="add if want to specify encoding or if getting UTF errors. Best not to at first.")
 
     group1 = parser.add_argument_group(f'{Fore.CYAN}Post Processing Options{Fore.RESET}')
 
@@ -924,15 +793,9 @@ def main():
 
     if len(sys.argv[1:]) == 0:
         parser.print_help()
-        # parser.print_usage() # for just the usage line
         parser.exit()
 
     args = parser.parse_args()
-    #print(args.recursive)
-    #sys.exit()
-
-
-
     format = "csv"
     if args.encoding:
         ENCODING = True
