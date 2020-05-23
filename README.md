@@ -33,8 +33,8 @@ Can also choose to just extract emails from the file if you like.
 
 Post Processing
 -------------
-Added ability to "clean" the resulting CSV files to get rid of useless fields as well as to normalize certain fields. For instance if it identifies date in 5 digit format it will convert to proper date. Or if sees IP address as integer or hex, will convert to IP address in format XXX.XX.XX.X.
-Added bunch of names and conditions for columns that are usually useless, but feel free to change the conditions/columns as you like. Or don't use it.
+Added ability to "clean" the resulting CSV files to get rid of useless fields as well as to normalize certain fields. For instance if it identifies date in 5 digit format it will convert to proper date. Or if sees IP address as integer or hex, will convert to IP address in format XXX.XX.XX.X. Add column headers you want to get rid of at top of the script or keep blank. Clean function will also remove duplicate rows and remove columns that are empty.
+
 
 Installation and Requirements
 -------------
