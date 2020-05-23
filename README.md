@@ -1,6 +1,6 @@
 What is this?
 -------------
-These functions were born out of need to parse large SQL dumps from breached databases and extract meaningful data. Added a few more functions to deal with multiple SQL dump types (dirty and badly formatted ones included), and convert Excel files, HTML tables and "pretty printed" tables to CSV. Also added functions to clean the CSVs once they have been created in order to get rid of useless data.
+These functions were born out of need to parse large SQL dumps from breached databases and extract meaningful data. Added a few more functions to deal with multiple SQL dump types (dirty and badly formatted ones included), and convert Excel files, HTML tables and "pretty printed" tables to CSV. Also added functions to clean the CSVs once they have been created in order to get rid of "useless" data.
 For each conversion options, can convert single file, folder of files, or do recursive search that will convert all files in all subfolders.
 
 SQL Dump Parsing
@@ -33,7 +33,7 @@ Can also choose to just extract emails from the file if you like.
 
 Post Processing
 -------------
-Added ability to "clean" the resulting CSV files to get rid of useless fields as well as to normalize certain fields. For instance if it identies date in 5 digit format it will convert to proper date. Or if sees IP address as integer or hex, will convert to IP address in format XXX.XX.XX.X.
+Added ability to "clean" the resulting CSV files to get rid of useless fields as well as to normalize certain fields. For instance if it identifies date in 5 digit format it will convert to proper date. Or if sees IP address as integer or hex, will convert to IP address in format XXX.XX.XX.X.
 Added bunch of names and conditions for columns that are usually useless, but feel free to change the conditions/columns as you like. Or don't use it.
 
 Installation and Requirements
@@ -46,29 +46,28 @@ Installation and Requirements
 Usage
 -------------
 ```
-usage: sqlparserplus.py [-h] [--sqlextract] [--emailextractonly] [--html]
+usage: sqlparserplus.py [-h] [--sqlextract] [--emailsonly] [--html]
                         [--xltocsv] [--pretty] [--dumpall] [--encoding]
                         [--clean] [--cleandir] [--recursive]
 
 optional arguments:
-  -h, --help            show this help message and exit
-  --recursive, -r       Use to convert/clean files within subfolders
+  -h, --help           show this help message and exit
+  --recursive, -r      Use to convert/clean files within subfolders
 
 What Do you Want to convert?:
-  --sqlextract , -s     full extraction of SQL file or folder of files
-  --emailextractonly , -em
-                        only get emails from file
-  --html , -html        convert file with HTML tables to CSV
-  --xltocsv , -xl       converts each sheet of Excel file to CSV file - throw
-                        in file or folder
-  --pretty , -pt        converts 'pretty table' dump to CSV
+  --sqlextract , -s    convert SQL file or folder of files to CSV
+  --emailsonly , -em   only extract emails from file
+  --html , -html       convert file with HTML tables to CSVs
+  --xltocsv , -xl      converts each sheet of Excel file to CSV file - throw
+                       in file or folder
+  --pretty , -pt       converts 'pretty table' dump to CSV
 
 SQL Dump Options:
-  --dumpall, -d         grab and convert every table
-  --encoding, -e        add flag if want to specify encoding. Best not to at
-                        first.
+  --dumpall, -d        grab and convert every table
+  --encoding, -e       add flag if want to specify encoding. Best not to at
+                       first.
 
 Post Processing Options:
-  --clean , -c          clean a CSV
-  --cleandir , -cd      clean a directory of CSVs
+  --clean , -c         clean a CSV
+  --cleandir , -cd     clean a directory of CSVs
   ```
