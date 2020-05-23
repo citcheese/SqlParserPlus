@@ -985,7 +985,7 @@ def main():
     elif args.sqlextract:
         item = args.sqlextract
         if os.path.isfile(item):
-            sqlconverter(args.filepath,format,get_encoding=ENCODING,dumpall = args.dumpall)
+            sqlconverter(item,format,get_encoding=ENCODING,dumpall = args.dumpall)
         elif os.path.isdir(item):
 
             if args.recursive:
@@ -1002,7 +1002,7 @@ def main():
                 files = os.listdir(item)
                 for x in files:
                     if x.endswith(".sql") or x.endswith(".txt") and os.path.isfile(os.path.join(item, x)):
-                        filepath = os.path.join(args.directory, x)
+                        filepath = os.path.join(item, x)
                         try:
                             sqlconverter(filepath, format, get_encoding=ENCODING, dumpall=args.dumpall)
                         except Exception as e:
