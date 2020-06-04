@@ -822,7 +822,8 @@ def main():
             elif os.path.isdir(item):
                 files = os.listdir(item)
                 for x in tqdm(files):
-                    convertExceltoCSV(os.path.join(item,x))
+                    if x.endswith("xls") or x.endswith("xlsx"):
+                        convertExceltoCSV(os.path.join(item,x))
     elif args.cleandir:
         if args.recursive:
             for root, dirs, files in os.walk(args.cleandir):
