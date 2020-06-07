@@ -175,7 +175,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
 
                     elif read_mode ==2:
                         if line.lower().startswith('insert') and tableregexp.search(line.split("(",1)[0]):#target_table in line.split("(", 1)[0][:50] and target_table + "_" not in line.split("(",1)[0]:
-                            data =re.split(valregex,line,1)[1].strip("\n\r;") #max split of 1
+                            data =re.split(valregex,line,1)[1] #max split of 1
 
                             thing1 = cleanline(data,overridequotechar="'")
                             for y in thing1:
@@ -759,7 +759,7 @@ def main():
                                                            
 
                            {Fore.RESET}by:{Fore.CYAN} Matteo Tomasini (citcheese) {Fore.RESET}
-                                    Version: {Fore.CYAN}0.5{Fore.RESET}                                      
+                                    Version: {Fore.CYAN}0.8{Fore.RESET}                                      
 
             {color.BOLD}        SQLParser+ - Convert SQL dumps and other leak dumps to CSVs!{Style.RESET_ALL}
 
