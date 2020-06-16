@@ -338,7 +338,7 @@ def tsvtocsv(tsvfile):
     with open(tsvfile, 'r', encoding="utf8",errors="replace") as fin, \
             open(os.path.join(bpath,csvfilename), 'w', encoding="utf8",
                  newline='') as fout:
-        reader = csv.reader(fin, dialect='excel-tab', quoting=csv.QUOTE_MINIMAL) #quote line added because got erro Error: field larger than field limit. some other options for this error: https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
+        reader = csv.reader(fin, dialect='excel-tab', quoting=csv.QUOTE_MINIMAL,quotechar="¬") #quote line added because got erro Error: field larger than field limit. some other options for this error: https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
         writer = csv.writer(fout)
         for row in reader:
             writer.writerow(row)
