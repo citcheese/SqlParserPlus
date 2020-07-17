@@ -52,6 +52,7 @@ def extractemailsfromfile(filename,lineextractor=False):
             emailsfile.write(x + "\n")
 
 
+
 def tableSelectGUI(tablenames,filename):
     tablecount = str(len(tablenames))
     msg = f"Found {tablecount} tables in {Path(filename).name}. Select Ones You want to Extract (best looking ones at top)"
@@ -64,7 +65,7 @@ def tableSelectGUI(tablenames,filename):
     choice = multchoicebox(msg, title, choices,preselect=None)
     return choice
 
-typelist  = ["email","username","alias","ipaddress","ip_address","address"]
+typelist  = ["email","username","alias","ipaddress","ip_address","address","ip"]
 regexp = re.compile(r"\),\((?=(?:[^']*'[^']*')*[^']*$)") #use this to get instance of "),(", change capturing groupthat aren't within a record so can determine if looking at list of records on one line, or one record per line. See here for getting rid of captured groups so only match on full match https://stackoverflow.com/questions/31915018/re-findall-behaves-weird/31915134#31915134
 valregex = re.compile(r" values ?\(",re.IGNORECASE) #re.compile(r"\) values ",re.IGNORECASE) q mark matches space 0 or 100 times
 valregex2 = re.compile(r" values[\s\(]",re.IGNORECASE)
@@ -338,7 +339,7 @@ def tsvtocsv(tsvfile):
     with open(tsvfile, 'r', encoding="utf8",errors="replace") as fin, \
             open(os.path.join(bpath,csvfilename), 'w', encoding="utf8",
                  newline='') as fout:
-        reader = csv.reader(fin, dialect='excel-tab', quoting=csv.QUOTE_MINIMAL,quotechar="¬") #quote line added because got erro Error: field larger than field limit. some other options for this error: https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
+        reader = csv.reader(fin, dialect='excel-tab', quoting=csv.QUOTE_MINIMAL) #quote line added because got erro Error: field larger than field limit. some other options for this error: https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
         writer = csv.writer(fout)
         for row in reader:
             writer.writerow(row)
@@ -724,8 +725,8 @@ def prettytabletoCSV(filepath):
         s = f.read()
     result = [tuple(filter(None, map(str.strip, splitline))) for line in s.splitlines() for splitline in
               [line.split("|")] if len(splitline) > 1]
-
-    with open(filepath.replace(".txt",'.csv'), 'w',newline="",encoding="utf8") as outcsv:
+    filename, file_extension = os.path.splitext(filepath)
+    with open(filepath.replace(file_extension,'.csv'), 'w',newline="",encoding="utf8") as outcsv:
         writer = csv.writer(outcsv)
         writer.writerows(result)
 
