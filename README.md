@@ -1,7 +1,7 @@
 What is this?
 -------------
 These functions were born out of need to parse large SQL dumps from breached databases and extract meaningful data. Added a few more functions to deal with multiple SQL dump types (dirty and badly formatted ones included), and convert Excel files, HTML tables and "pretty printed" tables to CSV. Also added functions to clean the CSVs once they have been created in order to get rid of "useless" data.
-For each conversion options, can convert single file, folder of files, or do recursive search that will convert all files in all subfolders.
+For each conversion option you can convert single file, folder of files, or do recursive search that will convert all files in all subfolders.
 
 SQL Dump Parsing
 -------------
