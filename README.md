@@ -3,6 +3,8 @@ What is this?
 These functions were born out of need to parse large SQL dumps from breached databases and extract meaningful data. Added a few more functions to deal with multiple SQL dump types (dirty and badly formatted ones included), and convert Excel files, HTML tables and "pretty printed" tables to CSV. Also added functions to clean the CSVs once they have been created in order to get rid of "useless" data.
 For each conversion option you can convert single file, folder of files, or do recursive search that will convert all files in all subfolders.
 
+Script has been tested to work flawlessly on over 5k SQL dumps to date. The only constraint is memory on your PC as at the moment script reads results of each table to memory before dumping to CSV. So will work fine for large file with many tables but if you have 10gb+ file with just one file, may choke. Can easily modify script to output table line by line. Will prob upload new version that does that eventually.
+
 SQL Dump Parsing
 -------------
 Will take pretty much any SQL dump you can throw at it and convert the dump to a CSV. Will work on dumps regardless if entries are line separated, if there are no proper tables, or on files without field values, etc.
