@@ -124,6 +124,8 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
             headers = []
             items = []
             values = []
+            wronglength =[]
+
             for line in tqdm(f,desc=f"Parsing {Fore.LIGHTBLUE_EX}{target_table}{Fore.RESET} table"):
                 try:
                     line = line.strip()
@@ -180,7 +182,10 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
 
                             thing1 = cleanline(data,overridequotechar="'")
                             for y in thing1:
-                                values.append(y)
+                                if len(values) == len(headers):
+                                    values.append(y)
+                                else:
+                                    wronglength.append(line)
 
                     elif read_mode ==3:
                         if line.lower().startswith('insert') and tableregexp.search(line.split("(",1)[0]) and line.endswith("VALUES"):
@@ -206,7 +211,11 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
 
                                 thing1 = cleanline(newline,readmode=3,overridequotechar="'")
                                 for x in thing1:
-                                    values.append(x)
+                                    if len(x) == len(headers):
+
+                                        values.append(x)
+                                    else:
+                                        wronglength.append(line)
                                 # need to
 
                                 #These lines may not be needed anymore. messed up some other files. we'll see...nope still need it
@@ -239,7 +248,11 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                         os.makedirs(os.path.join(bpath, "Good Ones"))
                     bpath = os.path.join(bpath, "Good Ones")
                 if len(values)>0:
-                    with open(os.path.join(bpath, F"{filename} - {target_table}.csv"),"w",encoding=ENCODING,newline = '',errors="replace") as f:
+                    with open(os.path.join(bpath, F"{filename} - {target_table}.csv"), "w", encoding=ENCODING,
+                              newline='', errors="replace") as f, open(
+                            os.path.join(bpath, F"{filename} - {target_table}_wrong_length.csv"), "w",
+                            encoding=ENCODING, newline='', errors="replace") as f2:
+
                         headers.append("table")
                         writer = csv.writer(f)
                         writer.writerow(
@@ -247,6 +260,8 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                         for x in values:
                             x.append(target_table)
                             writer.writerow([z.strip('\t "\'') for z in x])
+                        for y in wronglength:
+                            f2.write(y+"\n")
                     print(F"    Generating CSV for {target_table}")
                 else:
                     print(F"    Found no values in {target_table}")
