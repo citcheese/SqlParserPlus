@@ -182,7 +182,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
 
                             thing1 = cleanline(data,overridequotechar="'")
                             for y in thing1:
-                                if len(values) == len(headers):
+                                if len(y) == len(headers):
                                     values.append(y)
                                 else:
                                     wronglength.append(line)
