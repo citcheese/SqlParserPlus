@@ -248,10 +248,9 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                         os.makedirs(os.path.join(bpath, "Good Ones"))
                     bpath = os.path.join(bpath, "Good Ones")
                 if len(values)>0:
+                    print(F"    Generating CSV for {target_table}")
                     with open(os.path.join(bpath, F"{filename} - {target_table}.csv"), "w", encoding=ENCODING,
-                              newline='', errors="replace") as f, open(
-                            os.path.join(bpath, F"{filename} - {target_table}_wrong_length.csv"), "w",
-                            encoding=ENCODING, newline='', errors="replace") as f2:
+                              newline='', errors="replace") as f:
 
                         headers.append("table")
                         writer = csv.writer(f)
@@ -260,11 +259,17 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                         for x in values:
                             x.append(target_table)
                             writer.writerow([z.strip('\t "\'') for z in x])
-                        for y in wronglength:
-                            f2.write(y+"\n")
-                    print(F"    Generating CSV for {target_table}")
                 else:
                     print(F"    Found no values in {target_table}")
+                if wronglength:
+                    with open(
+                        os.path.join(bpath, F"{filename} - {target_table}_wrong_length.csv"), "w",
+                        encoding=ENCODING, newline='', errors="replace") as f2:
+                            for y in wronglength:
+                                f2.write(y+"\n")
+
+                #else:
+                 #   print(F"    Found no values in {target_table}")
 
 
 
