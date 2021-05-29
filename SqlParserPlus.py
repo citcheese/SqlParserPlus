@@ -164,7 +164,7 @@ def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
                     if read_mode==0:
                         continue
                     elif read_mode==1:
-                        if line.lower().startswith('primary'):
+                        if line.lower().startswith('primary') or line.lower().startswith("unique key"):
 
                             read_mode=0
                             continue
