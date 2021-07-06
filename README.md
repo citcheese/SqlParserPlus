@@ -9,7 +9,7 @@ SQL Dump Parsing
 -------------
 Will take pretty much any SQL dump you can throw at it and convert the dump to a CSV. Will work on dumps regardless if entries are line separated, if there are no proper tables, or on files without field values, etc.
 If it is proper SQL dump with tables, the parser will first run through the file and identify any tables present. It will then produce a simple GUI from which you can select the tables you want to grab with the most "promising" ones listed at the top:
-<pre><code> <p><br><img src="https://raw.githubusercontent.com/citcheese/SqlParserPlus/blob/master/window.JPG" width="300" height="300" /></p></code></pre>
+<pre><code> <p><br><img src="https://github.com/citcheese/SqlParserPlus/blob/master/window.JPG" width="300" height="300" /></p></code></pre>
 
 <b>NOTE:</b> If it looks like proper SQL table with "create table" and "insert" statements and Parser can't find the tables, more often than not, your file is UTF16 encoded. Either force script to open with UT16 encoding or just save file as "utf8" then rerun script.
 <p>You also have the option to automatically grab all tables in a SQL file by adding the "dumpall" flag. If there is only one table found in the dump, script will just automatically begin dumping that table. 
