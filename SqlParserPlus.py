@@ -68,7 +68,7 @@ def tableSelectGUI(tablenames,filename):
 typelist  = ["email","username","alias","ipaddress","ip_address","address","ip"]
 regexp = re.compile(r"\),\((?=(?:[^']*'[^']*')*[^']*$)") #use this to get instance of "),(", change capturing groupthat aren't within a record so can determine if looking at list of records on one line, or one record per line. See here for getting rid of captured groups so only match on full match https://stackoverflow.com/questions/31915018/re-findall-behaves-weird/31915134#31915134
 valregex = re.compile(r" values ?\(",re.IGNORECASE) #re.compile(r"\) values ",re.IGNORECASE) q mark matches space 0 or 100 times
-valregex2 = re.compile(r" values[\s\(]",re.IGNORECASE)
+valregex2 = re.compile(r" values[\s\(]\(",re.IGNORECASE)
 
 
 def SQLtoJson(filename,ENCODING,FORMAT="json",dumpall=False):
